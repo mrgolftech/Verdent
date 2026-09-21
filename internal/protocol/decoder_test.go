@@ -29,13 +29,13 @@ func TestStreamDecoderTextThinkingToolAndUsage(t *testing.T) {
 		got = append(got, events...)
 	}
 
-	if len(got) != 9 { t.Fatalf("expected 9 events, got %d: %#v", len(got), got) }
+	if len(got) != 11 { t.Fatalf("expected 11 events, got %d: %#v", len(got), got) }
 	if got[1].Type != EventUsage || got[1].Usage.InputTokens != 12 { t.Fatalf("bad input usage: %#v", got[1]) }
 	if got[2].Type != EventThinking || got[2].Text != "plan" { t.Fatalf("bad thinking start: %#v", got[2]) }
 	if got[4].Type != EventToolStart || got[4].ToolName != "read_file" { t.Fatalf("bad tool start: %#v", got[4]) }
 	if got[5].ArgumentDelta != `+"`"+`{"path":"/tmp/a`+"`"+` { t.Fatalf("bad first tool delta: %q", got[5].ArgumentDelta) }
-	if got[7].Type != EventTextDelta || got[7].Text != "done" { t.Fatalf("bad text: %#v", got[7]) }
-	if got[8].Type != EventUsage || got[8].Usage.OutputTokens != 7 { t.Fatalf("bad output usage: %#v", got[8]) }
+	if got[8].Type != EventTextDelta || got[8].Text != "done" { t.Fatalf("bad text: %#v", got[8]) }
+	if got[9].Type != EventUsage || got[9].Usage.OutputTokens != 7 { t.Fatalf("bad output usage: %#v", got[9]) }\n\tif got[10].Type != EventMessageEnd { t.Fatalf("missing message end: %#v", got[10]) }
 }
 
 func TestStreamDecoderError(t *testing.T) {
