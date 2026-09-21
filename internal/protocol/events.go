@@ -18,17 +18,20 @@ const (
 
 // Event is the provider-neutral stream representation consumed by API adapters.
 type Event struct {
-	Type      EventType       `json:"type"`
-	Index     int             `json:"index,omitempty"`
-	Text      string          `json:"text,omitempty"`
-	ToolID    string          `json:"tool_id,omitempty"`
-	ToolName  string          `json:"tool_name,omitempty"`
-	Arguments json.RawMessage `json:"arguments,omitempty"`
-	Usage     *Usage          `json:"usage,omitempty"`
-	Err       string          `json:"error,omitempty"`
+	Type          EventType       `json:"type"`
+	Index         int             `json:"index,omitempty"`
+	Text          string          `json:"text,omitempty"`
+	ToolID        string          `json:"tool_id,omitempty"`
+	ToolName      string          `json:"tool_name,omitempty"`
+	Arguments     json.RawMessage `json:"arguments,omitempty"`
+	ArgumentDelta string          `json:"argument_delta,omitempty"`
+	Usage         *Usage          `json:"usage,omitempty"`
+	Err           string          `json:"error,omitempty"`
 }
 
 type Usage struct {
-	InputTokens  int `json:"input_tokens,omitempty"`
-	OutputTokens int `json:"output_tokens,omitempty"`
+	InputTokens        int `json:"input_tokens,omitempty"`
+	OutputTokens       int `json:"output_tokens,omitempty"`
+	CacheReadTokens    int `json:"cache_read_input_tokens,omitempty"`
+	CacheCreateTokens  int `json:"cache_creation_input_tokens,omitempty"`
 }
