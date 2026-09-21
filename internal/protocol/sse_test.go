@@ -9,22 +9,22 @@ import (
 func TestSSEScanner(t *testing.T) {
 	input := ": heartbeat\n" +
 		"data: {\"type\":\"content_block_delta\"}\n\n" +
-		"event: ignored-name\n" +
+		"event: delta\n" +
 		"data: line-one\n" +
 		"data: line-two\n\n"
 
 	s := NewSSEScanner(strings.NewReader(input))
-	first, err := s.Next()
+	first, err := s.NextFrame()
 	if err != nil { t.Fatal(err) }
-	if first != "{\"type\":\"content_block_delta\"}" {
-		t.Fatalf("unexpected first event: %q", first)
+	if first.Event != "" || first.Data != "{\"type\":\"content_block_delta\"}" {
+		t.Fatalf("unexpected first frame: %#v", first)
 	}
-	second, err := s.Next()
+	second, err := s.NextFrame()
 	if err != nil { t.Fatal(err) }
-	if second != "line-one\nline-two" {
-		t.Fatalf("unexpected multiline event: %q", second)
+	if second.Event != "delta" || second.Data != "line-one\nline-two" {
+		t.Fatalf("unexpected second frame: %#v", second)
 	}
-	if _, err := s.Next(); err != io.EOF {
+	if _, err := s.NextFrame(); err != io.EOF {
 		t.Fatalf("expected EOF, got %v", err)
 	}
 }
