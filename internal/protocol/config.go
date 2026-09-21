@@ -8,10 +8,14 @@ import (
 	"github.com/mrgolftech/Verdent/internal/canonical"
 )
 
-const DefaultEndpoint = "https://llm-proxy.verdent.ai/llm/stream"
+const (
+	DefaultEndpoint = "https://llm-proxy.verdent.ai/llm/stream"
+	DefaultCatalogEndpoint = "https://llm-proxy.verdent.ai/config/model_list"
+)
 
 type Config struct {
 	Endpoint      string
+	CatalogEndpoint string
 	AppVersion    string
 	BetaHeader    string
 	Sign          string
@@ -32,6 +36,7 @@ type Config struct {
 
 func (c Config) WithDefaults() Config {
 	if strings.TrimSpace(c.Endpoint) == "" { c.Endpoint = DefaultEndpoint }
+	if strings.TrimSpace(c.CatalogEndpoint) == "" { c.CatalogEndpoint = DefaultCatalogEndpoint }
 	if c.Channel == "" { c.Channel = "deck" }
 	if c.AgentName == "" { c.AgentName = "VerdentDeck" }
 	if c.ReactType == "" { c.ReactType = "Main Agent" }
