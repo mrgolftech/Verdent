@@ -24,10 +24,10 @@ func NewSSEScanner(r io.Reader) *SSEScanner {
 func (s *SSEScanner) Next() (string, error) {
 	if s.done { return "", io.EOF }
 	for s.scanner.Scan() {
-		line := strings.TrimSuffix(s.scanner.Text(), "\\r")
+		line := strings.TrimSuffix(s.scanner.Text(), "\r")
 		if line == "" {
 			if len(s.data) == 0 { continue }
-			out := strings.Join(s.data, "\\n")
+			out := strings.Join(s.data, "\n")
 			s.data = s.data[:0]
 			return out, nil
 		}
@@ -41,7 +41,7 @@ func (s *SSEScanner) Next() (string, error) {
 	if err := s.scanner.Err(); err != nil { return "", err }
 	s.done = true
 	if len(s.data) > 0 {
-		out := strings.Join(s.data, "\\n")
+		out := strings.Join(s.data, "\n")
 		s.data = nil
 		return out, nil
 	}
