@@ -1,0 +1,15 @@
+# Build
+bin/
+*.exe
+*.out
+
+# Runtime secrets/state
+.env
+config.json
+accounts/
+state/
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
