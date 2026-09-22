@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"html"
 	"io"
@@ -361,7 +362,7 @@ func validateProxy(raw string) error {
 
 func readAdminJSON(r *http.Request, out any) error {
 	defer r.Body.Close()
-	dec := jsonDecoder(io.LimitReader(r.Body, 2<<20))
+	dec := json.NewDecoder(io.LimitReader(r.Body, 2<<20))
 	if err := dec.Decode(out); err != nil {
 		return fmt.Errorf("invalid JSON: %w", err)
 	}
