@@ -18,6 +18,9 @@ type Runtime struct {
 	AdminUser      string
 	AdminPassword  string
 	AccountsFile   string
+	PublicBaseURL  string
+	AuthBaseURL    string
+	LoginBaseURL   string
 	RequestTimeout time.Duration
 	Protocol       protocol.Config
 	Accounts       []account.Credential
@@ -47,6 +50,9 @@ func load(getenv func(string)string, readFile func(string)([]byte,error)) (Runti
 		AdminUser: strings.TrimSpace(getenv("VERDENT_ADMIN_USER")),
 		AdminPassword: getenv("VERDENT_ADMIN_PASSWORD"),
 		AccountsFile: strings.TrimSpace(getenv("VERDENT_ACCOUNTS_FILE")),
+		PublicBaseURL: strings.TrimSpace(getenv("VERDENT_PUBLIC_BASE_URL")),
+		AuthBaseURL: strings.TrimSpace(getenv("VERDENT_AUTH_BASE_URL")),
+		LoginBaseURL: strings.TrimSpace(getenv("VERDENT_LOGIN_BASE_URL")),
 		Protocol: protocol.Config{
 			Endpoint:strings.TrimSpace(getenv("VERDENT_ENDPOINT")),
 			CatalogEndpoint:strings.TrimSpace(getenv("VERDENT_CATALOG_ENDPOINT")),
