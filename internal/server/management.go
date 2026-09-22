@@ -230,7 +230,7 @@ func (s *Server) handleVerdentOAuthCallback(w http.ResponseWriter, r *http.Reque
 		s.oauthCallbackPage(w, false, err.Error())
 		return
 	}
-	item, err := s.upsertToken(token.Token, "", "", "0", "")
+	item, err := s.upsertAuthToken(token, "", "", "0", "")
 	if err != nil {
 		s.OAuth.Fail(flowID, err)
 		s.oauthCallbackPage(w, false, err.Error())
@@ -257,13 +257,21 @@ func (s *Server) handleVerdentDesktopImport(w http.ResponseWriter, r *http.Reque
 }
 
 func (s *Server) upsertToken(token, label, deviceID, teamID, proxyURL string) (account.Account, error) {
-	token = strings.TrimSpace(token)
+	return s.upsertAuthToken(verdentauth.TokenResponse{Token: token}, label, deviceID, teamID, proxyURL)
+}
+
+func (s *Server) upsertAuthToken(authToken verdentauth.TokenResponse, label, deviceID, teamID, proxyURL string) (account.Account, error) {
+	token := strings.TrimSpace(authToken.Token)
 	teamID = strings.TrimSpace(teamID)
 	if teamID == "" {
 		teamID = "0"
 	}
-	id := account.StableAccountID(token, teamID)
 	meta := account.MetadataFromToken(token)
+	identity := strings.TrimSpace(authToken.UserID)
+	if identity == "" {
+		identity = meta.UID
+	}
+	id := account.StableAccountIDForIdentity(identity, teamID)
 	existing, exists := s.Accounts.Credential(id)
 	var oldState account.State
 	if exists {
@@ -291,8 +299,22 @@ func (s *Server) upsertToken(token, label, deviceID, teamID, proxyURL string) (a
 	if strings.TrimSpace(proxyURL) == "" && exists {
 		proxyURL = existing.ProxyURL
 	}
+	refreshToken := strings.TrimSpace(authToken.RefreshToken)
+	tokenExpiresAt := int64(0)
+	if !authToken.ExpiresAt.IsZero() {
+		tokenExpiresAt = authToken.ExpiresAt.Unix()
+	}
+	if exists {
+		if refreshToken == "" {
+			refreshToken = existing.RefreshToken
+		}
+		if tokenExpiresAt == 0 {
+			tokenExpiresAt = existing.TokenExpiresAt
+		}
+	}
 	credential := account.Credential{
 		ID: id, Label: strings.TrimSpace(label), Token: token,
+		RefreshToken: refreshToken, TokenExpiresAt: tokenExpiresAt,
 		DeviceID: strings.TrimSpace(deviceID), TeamID: teamID, ProxyURL: strings.TrimSpace(proxyURL),
 	}
 	s.Accounts.Add(credential)
@@ -308,6 +330,66 @@ func (s *Server) upsertToken(token, label, deviceID, teamID, proxyURL string) (a
 		}
 	}
 	return account.Account{}, fmt.Errorf("account %s disappeared after upsert", id)
+}
+
+func (s *Server) ensureFreshAccount(ctx context.Context, selected *account.Account) (*account.Account, error) {
+	if selected == nil {
+		return nil, fmt.Errorf("no account selected")
+	}
+	credential := selected.Credential
+	if credential.RefreshToken == "" || credential.TokenExpiresAt == 0 || time.Until(time.Unix(credential.TokenExpiresAt, 0)) > time.Minute {
+		return selected, nil
+	}
+	if s.OAuth == nil {
+		if time.Now().Unix() >= credential.TokenExpiresAt {
+			return nil, fmt.Errorf("Verdent access token expired and OAuth refresh is unavailable")
+		}
+		return selected, nil
+	}
+
+	s.refreshMu.Lock()
+	defer s.refreshMu.Unlock()
+
+	current, ok := s.Accounts.Credential(credential.ID)
+	if !ok {
+		return nil, fmt.Errorf("account %s disappeared before token refresh", credential.ID)
+	}
+	if current.RefreshToken == "" || current.TokenExpiresAt == 0 || time.Until(time.Unix(current.TokenExpiresAt, 0)) > time.Minute {
+		clone := *selected
+		clone.Credential = current
+		return &clone, nil
+	}
+
+	refreshed, err := s.OAuth.Refresh(ctx, current.RefreshToken)
+	if err != nil {
+		if time.Now().Unix() < current.TokenExpiresAt {
+			clone := *selected
+			clone.Credential = current
+			return &clone, nil
+		}
+		return nil, fmt.Errorf("refresh Verdent access token: %w", err)
+	}
+	if refreshed.RefreshToken == "" {
+		refreshed.RefreshToken = current.RefreshToken
+	}
+	if refreshed.UserID == "" {
+		refreshed.UserID = account.MetadataFromToken(current.Token).UID
+	}
+
+	s.Accounts.UpdateCredential(current.ID, func(c *account.Credential) {
+		c.Token = refreshed.Token
+		c.RefreshToken = refreshed.RefreshToken
+		if !refreshed.ExpiresAt.IsZero() {
+			c.TokenExpiresAt = refreshed.ExpiresAt.Unix()
+		}
+	})
+	if err := s.persistAccounts(); err != nil {
+		return nil, fmt.Errorf("persist refreshed Verdent token: %w", err)
+	}
+	updated, _ := s.Accounts.Credential(current.ID)
+	clone := *selected
+	clone.Credential = updated
+	return &clone, nil
 }
 
 func (s *Server) persistAccounts() error {
