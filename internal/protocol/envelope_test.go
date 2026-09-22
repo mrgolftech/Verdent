@@ -88,7 +88,7 @@ func TestCapturedDesktopSystemFoldsClientSystemIntoUserMessage(t *testing.T) {
 	if err != nil { t.Fatal(err) }
 	var messages []map[string]any
 	if err := json.Unmarshal(raw,&messages); err != nil { t.Fatal(err) }
-	if len(messages)!=2 { t.Fatalf("messages=%#v",messages) }
+	if len(messages)!=3 { t.Fatalf("messages=%#v",messages) }
 
 	firstContent, _ := messages[0]["content"].([]any)
 	if len(firstContent)<3 { t.Fatalf("first content=%#v",firstContent) }
@@ -102,7 +102,8 @@ func TestCapturedDesktopSystemFoldsClientSystemIntoUserMessage(t *testing.T) {
 	}
 	if _, ok := messages[0]["model"]; ok { t.Fatal("user message must not carry model") }
 	if messages[1]["model"] != req.Model { t.Fatalf("assistant model missing: %#v",messages[1]) }
-	lastContent, _ := messages[1]["content"].([]any)
+	if _, ok := messages[2]["model"]; ok { t.Fatal("continuation user message must not carry model") }
+	lastContent, _ := messages[2]["content"].([]any)
 	lastBlock, _ := lastContent[len(lastContent)-1].(map[string]any)
 	cc, _ := lastBlock["cache_control"].(map[string]any)
 	if cc["type"] != "ephemeral" { t.Fatalf("missing final cache_control: %#v",lastBlock) }
