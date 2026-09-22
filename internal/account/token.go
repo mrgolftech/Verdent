@@ -62,7 +62,16 @@ func MetadataFromToken(token string) TokenMetadata {
 
 func StableAccountID(token, teamID string) string {
 	meta := MetadataFromToken(token)
-	sum := sha256.Sum256([]byte(meta.UID + "|" + teamID))
+	return StableAccountIDForIdentity(meta.UID, teamID)
+}
+
+func StableAccountIDForIdentity(identity, teamID string) string {
+	identity = strings.TrimSpace(identity)
+	teamID = strings.TrimSpace(teamID)
+	if identity == "" {
+		identity = "unknown"
+	}
+	sum := sha256.Sum256([]byte(identity + "|" + teamID))
 	return "vd-" + hex.EncodeToString(sum[:6])
 }
 
