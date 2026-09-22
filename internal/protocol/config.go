@@ -31,12 +31,21 @@ type Config struct {
 	CPUArch       string
 	TeamID        string
 	UserAgent          string
+	Effort             string
+	Thinking           *Thinking
 	NativeAPI          bool
 	SystemCiphertext    string
 	ModelCatalogVersion string
 	MinRequestInterval time.Duration
 	RetryDelays        []time.Duration
 	SystemTrailer      []canonical.ContentBlock
+}
+
+// Thinking mirrors the desktop request's `thinking` block captured in the
+// system template (e.g. {"type":"enabled","budget_tokens":4000}).
+type Thinking struct {
+	Type         string `json:"type"`
+	BudgetTokens int    `json:"budget_tokens"`
 }
 
 func (c Config) WithDefaults() Config {

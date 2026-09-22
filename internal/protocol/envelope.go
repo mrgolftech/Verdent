@@ -55,6 +55,7 @@ type Envelope struct {
 	MaxTokens            int            `json:"max_tokens"`
 	Temperature          float64        `json:"temperature"`
 	System               string         `json:"system"`
+	Thinking             *Thinking      `json:"thinking,omitempty"`
 	Tools                string         `json:"tools,omitempty"`
 	ToolChoice           map[string]any `json:"tool_choice,omitempty"`
 	Messages             string         `json:"messages"`
@@ -124,11 +125,13 @@ func BuildEnvelope(req canonical.Request, cfg Config, codec *Codec, opt Envelope
 		modelCatalogVersion = strings.TrimSpace(cfg.ModelCatalogVersion)
 	}
 
+	effort := strings.TrimSpace(req.Effort)
+	if effort == "" { effort = strings.TrimSpace(cfg.Effort) }
 	env := Envelope{
 		Channel: cfg.Channel, Model: req.Model, SessionID: opt.IDs.SessionID, ConvID: opt.IDs.ConvID, ReactID: opt.IDs.ReactID,
 		ReactType: cfg.ReactType, Stream: true, MaxTokens: maxTokens, Temperature: temperature,
-		System: encSystem, Messages: encMessages, AgentName: cfg.AgentName, Env: opt.Environment, Encrypt: true,
-		TraceTags: []string{}, TraceMetadata: trace, ModelCatalogVersion: modelCatalogVersion, Effort: req.Effort,
+		System: encSystem, Thinking: cfg.Thinking, Messages: encMessages, AgentName: cfg.AgentName, Env: opt.Environment, Encrypt: true,
+		TraceTags: []string{}, TraceMetadata: trace, ModelCatalogVersion: modelCatalogVersion, Effort: effort,
 		ContextWindowTokens: req.ContextWindowTokens, IsEco: false, IsAuto: false, IsFree: false, IsLimitFree: false,
 		NativeAPI: cfg.NativeAPI,
 	}
