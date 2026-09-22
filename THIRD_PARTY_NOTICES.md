@@ -11,4 +11,14 @@ This project is a clean-room implementation. Public projects may be used to unde
 
 The MIT license permits use, modification and distribution subject to retaining its copyright and permission notice in copies or substantial portions.
 
+
+## ErfanBagheri404/Verdent2API
+
+- Repository: `ErfanBagheri404/Verdent2API`
+- Relevant areas: PKCE authentication flow, current Verdent 2.15.1 request-shape observations, message-block formatting, native tool passthrough, and burst-lane retry behavior
+- License: MIT
+- Referenced as an independent interoperability implementation; this project does not embed its captured opaque Desktop `system` blob
+
+The implementation here keeps captured protocol material external and configurable rather than copying a version-specific request template into source control.
+
 No user credentials, private captures, or proprietary Verdent application files are stored in this repository.
