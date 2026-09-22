@@ -109,6 +109,16 @@ func (r *Router) Credentials() []Credential {
 	return out
 }
 
+func (r *Router) Credential(id string) (Credential, bool) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	a := r.byID[id]
+	if a == nil {
+		return Credential{}, false
+	}
+	return a.Credential, true
+}
+
 // Select returns an eligible account and pins it to session. An explicit ID
 // overrides prior affinity only when that account is currently eligible.
 func (r *Router) Select(session, explicitID string) *Account {
