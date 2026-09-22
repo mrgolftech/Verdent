@@ -13,6 +13,7 @@ import (
 	"github.com/mrgolftech/Verdent/internal/account"
 	"github.com/mrgolftech/Verdent/internal/config"
 	"github.com/mrgolftech/Verdent/internal/server"
+	"github.com/mrgolftech/Verdent/internal/verdentauth"
 )
 
 func main() {
@@ -20,7 +21,16 @@ func main() {
 	router:=account.NewRouter(cfg.Accounts)
 	api:=server.New(router,cfg.Protocol)
 	api.APIKey=cfg.APIKey
+	api.AdminUser=cfg.AdminUser
+	api.AdminPassword=cfg.AdminPassword
+	api.PublicBaseURL=cfg.PublicBaseURL
+	api.AccountStore=account.FileStore{Path:cfg.AccountsFile}
 	api.RequestTimeout=cfg.RequestTimeout
+	api.OAuth=verdentauth.New(verdentauth.Config{
+		AuthBaseURL:cfg.AuthBaseURL,
+		LoginBaseURL:cfg.LoginBaseURL,
+		UserAgent:cfg.Protocol.UserAgent,
+	},nil)
 
 	httpServer:=&http.Server{Addr:cfg.Listen,Handler:api.Handler(),ReadHeaderTimeout:10*time.Second,IdleTimeout:2*time.Minute}
 	ctx,stop:=signal.NotifyContext(context.Background(),os.Interrupt,syscall.SIGTERM);defer stop()
