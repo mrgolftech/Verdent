@@ -27,18 +27,23 @@ type Runtime struct {
 }
 
 type storedCredential struct {
-	ID       string `json:"id"`
-	Label    string `json:"label,omitempty"`
-	Token    string `json:"token"`
-	DeviceID string `json:"device_id"`
-	TeamID   string `json:"team_id,omitempty"`
-	ProxyURL string `json:"proxy_url,omitempty"`
+	ID             string `json:"id"`
+	Label          string `json:"label,omitempty"`
+	Token          string `json:"token"`
+	RefreshToken   string `json:"refresh_token,omitempty"`
+	TokenExpiresAt int64  `json:"token_expires_at,omitempty"`
+	DeviceID       string `json:"device_id"`
+	TeamID         string `json:"team_id,omitempty"`
+	ProxyURL       string `json:"proxy_url,omitempty"`
 }
 
 type accountFile struct { Accounts []storedCredential `json:"accounts"` }
 
 func (s storedCredential) runtime() account.Credential {
-	return account.Credential{ID:s.ID,Label:s.Label,Token:s.Token,DeviceID:s.DeviceID,TeamID:s.TeamID,ProxyURL:s.ProxyURL}
+	return account.Credential{
+		ID:s.ID,Label:s.Label,Token:s.Token,RefreshToken:s.RefreshToken,TokenExpiresAt:s.TokenExpiresAt,
+		DeviceID:s.DeviceID,TeamID:s.TeamID,ProxyURL:s.ProxyURL,
+	}
 }
 
 func Load() (Runtime,error) { return load(os.Getenv,os.ReadFile) }
