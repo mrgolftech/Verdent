@@ -15,12 +15,14 @@ const (
 )
 
 type Credential struct {
-	ID       string `json:"id"`
-	Label    string `json:"label,omitempty"`
-	Token    string `json:"-"`
-	DeviceID string `json:"device_id"`
-	TeamID   string `json:"team_id,omitempty"`
-	ProxyURL string `json:"proxy_url,omitempty"`
+	ID             string `json:"id"`
+	Label          string `json:"label,omitempty"`
+	Token          string `json:"-"`
+	RefreshToken   string `json:"-"`
+	TokenExpiresAt int64  `json:"token_expires_at,omitempty"`
+	DeviceID       string `json:"device_id"`
+	TeamID         string `json:"team_id,omitempty"`
+	ProxyURL       string `json:"proxy_url,omitempty"`
 }
 
 type Account struct {
