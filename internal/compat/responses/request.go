@@ -385,8 +385,8 @@ func customInput(raw string) string {
 	// fragment formally invalid. Native freeform tools such as apply_patch
 	// still need the exact payload, so unwrap the common {"input":"..."} shape
 	// and re-escape raw control characters before decoding the JSON string.
-	const prefix = "{"input":""
-	const suffix = ""}"
+	const prefix = `{"input":"`
+	const suffix = `"}`
 	if strings.HasPrefix(trim, prefix) && strings.HasSuffix(trim, suffix) {
 		inner := trim[len(prefix) : len(trim)-len(suffix)]
 		escaped := strings.NewReplacer(
@@ -394,7 +394,7 @@ func customInput(raw string) string {
 			"\n", "\\n",
 			"\t", "\\t",
 		).Replace(inner)
-		if json.Unmarshal([]byte("""+escaped+"""), &value) == nil {
+		if json.Unmarshal([]byte(`"`+escaped+`"`), &value) == nil {
 			return value
 		}
 		return inner
