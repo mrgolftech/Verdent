@@ -30,6 +30,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /healthz",func(w http.ResponseWriter,r *http.Request){ writeJSON(w,http.StatusOK,map[string]any{"ok":true}) })
 	mux.HandleFunc("GET /v1/models",s.auth(s.handleModels))
 	mux.HandleFunc("POST /v1/chat/completions",s.auth(s.handleChatCompletions))
+	mux.HandleFunc("POST /v1/responses",s.auth(s.handleResponses))
 	return mux
 }
 
