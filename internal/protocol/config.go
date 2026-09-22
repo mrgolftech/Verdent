@@ -33,6 +33,7 @@ type Config struct {
 	UserAgent          string
 	Effort             string
 	Thinking           *Thinking
+	Environment        Environment
 	NativeAPI          bool
 	SystemCiphertext    string
 	ModelCatalogVersion string

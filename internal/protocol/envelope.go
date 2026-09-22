@@ -127,10 +127,13 @@ func BuildEnvelope(req canonical.Request, cfg Config, codec *Codec, opt Envelope
 
 	effort := strings.TrimSpace(req.Effort)
 	if effort == "" { effort = strings.TrimSpace(cfg.Effort) }
+	envMeta := opt.Environment
+	if envMeta.Platform == "" && envMeta.OSVersion == "" && envMeta.Shell == "" { envMeta = cfg.Environment }
+	if envMeta.TodayDate == "" { envMeta.TodayDate = now.Format("2006-01-02") }
 	env := Envelope{
 		Channel: cfg.Channel, Model: req.Model, SessionID: opt.IDs.SessionID, ConvID: opt.IDs.ConvID, ReactID: opt.IDs.ReactID,
 		ReactType: cfg.ReactType, Stream: true, MaxTokens: maxTokens, Temperature: temperature,
-		System: encSystem, Thinking: cfg.Thinking, Messages: encMessages, AgentName: cfg.AgentName, Env: opt.Environment, Encrypt: true,
+		System: encSystem, Thinking: cfg.Thinking, Messages: encMessages, AgentName: cfg.AgentName, Env: envMeta, Encrypt: true,
 		TraceTags: []string{}, TraceMetadata: trace, ModelCatalogVersion: modelCatalogVersion, Effort: effort,
 		ContextWindowTokens: req.ContextWindowTokens, IsEco: false, IsAuto: false, IsFree: false, IsLimitFree: false,
 		NativeAPI: cfg.NativeAPI,
