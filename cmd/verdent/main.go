@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/mrgolftech/Verdent/internal/account"
+	"github.com/mrgolftech/Verdent/internal/apikey"
 	"github.com/mrgolftech/Verdent/internal/config"
 	"github.com/mrgolftech/Verdent/internal/server"
 	"github.com/mrgolftech/Verdent/internal/verdentauth"
@@ -25,6 +26,8 @@ func main() {
 	api.AdminPassword=cfg.AdminPassword
 	api.PublicBaseURL=cfg.PublicBaseURL
 	api.AccountStore=account.FileStore{Path:cfg.AccountsFile}
+	keyManager,err:=apikey.NewManager(apikey.FileStore{Path:cfg.KeysFile});if err!=nil{log.Fatalf("keystore error: %v",err)}
+	api.Keys=keyManager
 	api.RequestTimeout=cfg.RequestTimeout
 	api.OAuth=verdentauth.New(verdentauth.Config{
 		AuthBaseURL:cfg.AuthBaseURL,

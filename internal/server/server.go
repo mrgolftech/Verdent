@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/mrgolftech/Verdent/internal/account"
+	"github.com/mrgolftech/Verdent/internal/apikey"
 	"github.com/mrgolftech/Verdent/internal/protocol"
 	"github.com/mrgolftech/Verdent/internal/verdentauth"
 	"github.com/mrgolftech/Verdent/internal/webui"
@@ -19,6 +20,7 @@ import (
 type Server struct {
 	Accounts       *account.Router
 	AccountStore   account.FileStore
+	Keys           *apikey.Manager
 	ProtocolConfig protocol.Config
 	RequestTimeout time.Duration
 	APIKey         string
@@ -67,6 +69,10 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("DELETE /api/accounts/{id}",s.admin(s.handleAdminAccountDelete))
 	mux.HandleFunc("GET /api/models",s.admin(s.handleAdminModels))
 
+	mux.HandleFunc("GET /api/keys",s.admin(s.handleKeysList))
+	mux.HandleFunc("POST /api/keys",s.admin(s.handleKeysCreate))
+	mux.HandleFunc("DELETE /api/keys/{id}",s.admin(s.handleKeysDelete))
+
 	mux.HandleFunc("GET /v1/models",s.auth(s.handleModels))
 	mux.HandleFunc("POST /v1/chat/completions",s.auth(s.handleChatCompletions))
 	mux.HandleFunc("POST /v1/responses",s.auth(s.handleResponses))
@@ -75,11 +81,11 @@ func (s *Server) Handler() http.Handler {
 
 func (s *Server) auth(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter,r *http.Request){
-		if s.APIKey!="" {
-			got:=strings.TrimSpace(strings.TrimPrefix(r.Header.Get("Authorization"),"Bearer "))
-			if got!=s.APIKey { writeAPIError(w,http.StatusUnauthorized,"invalid_api_key","Invalid API key"); return }
-		}
-		next(w,r)
+		if s.APIKey=="" && s.Keys==nil { next(w,r); return }
+		got:=strings.TrimSpace(strings.TrimPrefix(r.Header.Get("Authorization"),"Bearer "))
+		if s.APIKey!="" && got==s.APIKey { next(w,r); return }
+		if s.Keys!=nil && s.Keys.Valid(got) { next(w,r); return }
+		writeAPIError(w,http.StatusUnauthorized,"invalid_api_key","Invalid API key")
 	}
 }
 

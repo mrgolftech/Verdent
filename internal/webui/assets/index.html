@@ -18,6 +18,7 @@
         <button class="nav-btn active" data-page="overview"><span>▦</span>概览</button>
         <button class="nav-btn" data-page="accounts"><span>◎</span>账号</button>
         <button class="nav-btn" data-page="models"><span>◆</span>模型</button>
+        <button class="nav-btn" data-page="keys"><span>🔑</span>密钥</button>
         <button class="nav-btn" data-page="api"><span>⌘</span>API</button>
       </nav>
       <div class="sidebar-footer">
@@ -73,6 +74,15 @@
             <article class="panel"><div class="panel-head"><div><h2>兼容端点</h2><p>当前已实现的 API Surface。</p></div></div><div class="endpoint-list"><div><code>POST /v1/chat/completions</code><span class="badge good">Ready</span></div><div><code>POST /v1/responses</code><span class="badge good">Ready</span></div><div><code>GET /v1/models</code><span class="badge good">Ready</span></div></div></article>
           </div>
         </section>
+
+        <section id="page-keys" class="page" hidden>
+          <div class="page-heading action-heading">
+            <div><h1>密钥</h1><p>下游客户端用这些密钥调用 /v1 接口。</p></div>
+            <div class="actions"><button id="key-add" class="btn primary">＋ 创建密钥</button></div>
+          </div>
+          <div class="notice"><span>ⓘ</span><div><strong>密钥即凭据</strong><p>完整密钥只在管理控制台显示，请妥善保管、勿公开。删除后使用该密钥的客户端会立即失效。</p></div></div>
+          <article class="panel"><div class="panel-head"><div><h2>API 密钥</h2><p id="keys-meta">加载中…</p></div></div><div id="keys-table"></div></article>
+        </section>
       </main>
     </div>
   </div>
@@ -80,7 +90,7 @@
   <dialog id="mobile-drawer" class="drawer">
     <div class="drawer-panel">
       <div class="drawer-head"><div class="brand-row bare"><div class="brand-mark">VD</div><strong>Verdent Gateway</strong></div><button id="drawer-close" class="icon-btn">✕</button></div>
-      <nav class="nav drawer-nav"><button class="nav-btn active" data-page="overview"><span>▦</span>概览</button><button class="nav-btn" data-page="accounts"><span>◎</span>账号</button><button class="nav-btn" data-page="models"><span>◆</span>模型</button><button class="nav-btn" data-page="api"><span>⌘</span>API</button></nav>
+      <nav class="nav drawer-nav"><button class="nav-btn active" data-page="overview"><span>▦</span>概览</button><button class="nav-btn" data-page="accounts"><span>◎</span>账号</button><button class="nav-btn" data-page="models"><span>◆</span>模型</button><button class="nav-btn" data-page="keys"><span>🔑</span>密钥</button><button class="nav-btn" data-page="api"><span>⌘</span>API</button></nav>
     </div>
     <form method="dialog" class="drawer-backdrop"><button>close</button></form>
   </dialog>
@@ -104,6 +114,17 @@
       <div class="modal-head"><div><h3>固定出口代理</h3><p id="proxy-account"></p></div><button type="button" class="icon-btn" data-close="proxy-modal">✕</button></div>
       <div class="modal-body form-stack"><input id="proxy-id" type="hidden"><label><span>代理 URL</span><input id="proxy-value" placeholder="http://user:pass@host:port"><small>留空保存会清除代理；出于安全原因不会回显已有密码。</small></label><p id="proxy-error" class="form-error"></p></div>
       <div class="modal-actions"><button type="button" class="btn ghost" data-close="proxy-modal">取消</button><button class="btn primary" type="submit">保存</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="key-modal" class="modal">
+    <form id="key-form" class="modal-box small-box">
+      <div class="modal-head"><div><h3>创建 API 密钥</h3><p>创建后可在列表中复制完整密钥。</p></div><button type="button" class="icon-btn" data-close="key-modal">✕</button></div>
+      <div class="modal-body form-stack">
+        <label><span>名称 / 备注</span><input id="key-name" placeholder="例如 my-app"></label>
+        <p id="key-error" class="form-error"></p>
+      </div>
+      <div class="modal-actions"><button type="button" class="btn ghost" data-close="key-modal">取消</button><button class="btn primary" type="submit">创建</button></div>
     </form>
   </dialog>
 

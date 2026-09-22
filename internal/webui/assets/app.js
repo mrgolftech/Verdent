@@ -1,8 +1,9 @@
 const $=(s,r=document)=>r.querySelector(s);
 const $$=(s,r=document)=>[...r.querySelectorAll(s)];
-const PAGES={overview:"概览",accounts:"账号",models:"模型",api:"API"};
+const PAGES={overview:"概览",accounts:"账号",models:"模型",keys:"密钥",api:"API"};
 let currentPage="overview";
 let accountCache=[];
+let keysCache=[];
 
 async function api(path,opts={}){
   const init={credentials:"same-origin",...opts};
@@ -42,6 +43,7 @@ async function loadPage(page){
   if(page==="overview")return loadOverview();
   if(page==="accounts")return loadAccounts();
   if(page==="models")return loadModels();
+  if(page==="keys")return loadKeys();
   if(page==="api")return loadAPI();
 }
 
@@ -169,6 +171,44 @@ async function loadModels(){
 }
 async function loadAPI(){$("#base-url").textContent=location.origin+"/v1";}
 
+async function loadKeys(){
+  const d=await api("/keys");
+  keysCache=d.keys||[];
+  $("#keys-meta").textContent=keysCache.length?keysCache.length+" 个密钥 · "+(d.store_file||""):"还没有密钥。";
+  if(!keysCache.length){$("#keys-table").innerHTML='<div class="empty">还没有密钥。点击右上角「创建密钥」。</div>';return;}
+  $("#keys-table").innerHTML='<div class="table-wrap"><table class="data-table responsive-table"><thead><tr><th>名称</th><th>密钥</th><th>创建时间</th><th>操作</th></tr></thead><tbody>'+keysCache.map(k=>{
+    return '<tr>'+
+      '<td data-label="名称"><div class="cell-main">'+esc(k.name||"—")+'</div>'+(k.builtin?'<div class="cell-sub">内置 · 环境变量</div>':'')+'</td>'+
+      '<td data-label="密钥"><div class="mono wrap-anywhere">'+esc(k.key)+'</div></td>'+
+      '<td data-label="创建时间">'+esc(k.created_at?fmtTime(k.created_at):"—")+'</td>'+
+      '<td data-label="操作"><div class="table-actions">'+
+      '<button class="table-action" data-copy-key="'+esc(k.id)+'">复制</button>'+
+      (k.builtin?'':'<button class="table-action danger" data-del-key="'+esc(k.id)+'">删除</button>')+
+      '</div></td></tr>';
+  }).join("")+"</tbody></table></div>";
+  $$("[data-copy-key]").forEach(b=>b.onclick=()=>copyKey(b.dataset.copyKey));
+  $$("[data-del-key]").forEach(b=>b.onclick=()=>deleteKey(b.dataset.delKey));
+}
+async function copyKey(id){
+  const k=keysCache.find(x=>x.id===id);if(!k)return;
+  try{await navigator.clipboard.writeText(k.key);toast("密钥已复制","good");}
+  catch{toast("复制失败，请手动选择","bad");}
+}
+async function createKey(ev){
+  ev.preventDefault();$("#key-error").textContent="";
+  try{
+    const r=await api("/keys",{method:"POST",body:{name:$("#key-name").value.trim()}});
+    closeDialog("key-modal");ev.target.reset();
+    toast("密钥已创建，可在列表中复制","good");await loadKeys();
+  }catch(e){$("#key-error").textContent=e.message;}
+}
+async function deleteKey(id){
+  const k=keysCache.find(x=>x.id===id);if(!k)return;
+  if(!confirm("确认删除密钥 "+(k.name||id)+"？\n使用该密钥的客户端将立即失效。"))return;
+  try{await api("/keys/"+encodeURIComponent(id),{method:"DELETE"});toast("密钥已删除","good");await loadKeys();}
+  catch(e){toast(e.message,"bad");}
+}
+
 async function logout(){try{await api("/auth/logout",{method:"POST"});}catch{}location.replace("/login");}
 function bind(){
   $$("[data-page]").forEach(b=>b.onclick=()=>setPage(b.dataset.page));
@@ -179,6 +219,7 @@ function bind(){
   $("#drawer-close").onclick=()=>$("#mobile-drawer").close();
   $("#browser-login").onclick=browserLogin;$("#desktop-import").onclick=desktopImport;$("#token-add").onclick=()=>openDialog("token-modal");
   $("#token-form").onsubmit=saveToken;$("#proxy-form").onsubmit=saveProxy;$("#models-refresh").onclick=loadModels;
+  $("#key-add").onclick=()=>openDialog("key-modal");$("#key-form").onsubmit=createKey;
   $$("[data-close]").forEach(b=>b.onclick=()=>closeDialog(b.dataset.close));
   $$("[data-copy]").forEach(b=>b.onclick=async()=>{const el=$("#"+b.dataset.copy);await navigator.clipboard.writeText(el.textContent);toast("已复制","good");});
   window.addEventListener("message",e=>{if(e.origin===location.origin&&e.data?.type==="verdent-auth"&&e.data.status==="success")toast("授权回调已完成，正在保存账号…","good");});

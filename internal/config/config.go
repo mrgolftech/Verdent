@@ -19,6 +19,7 @@ type Runtime struct {
 	AdminUser      string
 	AdminPassword  string
 	AccountsFile   string
+	KeysFile       string
 	PublicBaseURL  string
 	AuthBaseURL    string
 	LoginBaseURL   string
@@ -56,6 +57,7 @@ func load(getenv func(string)string, readFile func(string)([]byte,error)) (Runti
 		AdminUser: strings.TrimSpace(getenv("VERDENT_ADMIN_USER")),
 		AdminPassword: getenv("VERDENT_ADMIN_PASSWORD"),
 		AccountsFile: strings.TrimSpace(getenv("VERDENT_ACCOUNTS_FILE")),
+		KeysFile: strings.TrimSpace(getenv("VERDENT_KEYS_FILE")),
 		PublicBaseURL: strings.TrimSpace(getenv("VERDENT_PUBLIC_BASE_URL")),
 		AuthBaseURL: strings.TrimSpace(getenv("VERDENT_AUTH_BASE_URL")),
 		LoginBaseURL: strings.TrimSpace(getenv("VERDENT_LOGIN_BASE_URL")),
@@ -72,6 +74,7 @@ func load(getenv func(string)string, readFile func(string)([]byte,error)) (Runti
 	if r.AdminUser=="" { r.AdminUser="admin" }
 	if r.AdminPassword=="" { r.AdminPassword=r.APIKey }
 	if r.AccountsFile=="" { r.AccountsFile="data/accounts.json" }
+	if r.KeysFile=="" { r.KeysFile="data/keys.json" }
 	r.Protocol.MinRequestInterval=1200*time.Millisecond
 	r.Protocol.RetryDelays=[]time.Duration{10*time.Second,25*time.Second,45*time.Second}
 	r.RequestTimeout=5*time.Minute
