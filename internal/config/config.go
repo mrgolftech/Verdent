@@ -68,6 +68,9 @@ func load(getenv func(string)string, readFile func(string)([]byte,error)) (Runti
 			BetaHeader:strings.TrimSpace(getenv("VERDENT_PROXY_BETA")),
 			Sign:getenv("VERDENT_PROXY_SIGN"),
 			UserAgent:strings.TrimSpace(getenv("VERDENT_USER_AGENT")),
+			OSType:strings.TrimSpace(getenv("VERDENT_OS_TYPE")),
+			DeviceType:strings.TrimSpace(getenv("VERDENT_DEVICE_TYPE")),
+			DeviceModel:strings.TrimSpace(getenv("VERDENT_DEVICE_MODEL")),
 		},
 	}
 	if r.Listen=="" { r.Listen=":5084" }
@@ -94,11 +97,15 @@ func load(getenv func(string)string, readFile func(string)([]byte,error)) (Runti
 			System string `json:"system"`
 			ModelCatalogVersion string `json:"model_catalog_version"`
 			NativeAPI *bool `json:"native_api"`
+			Effort string `json:"effort"`
+			Thinking *protocol.Thinking `json:"thinking"`
 		}
 		if err:=json.Unmarshal(data,&template);err!=nil{return Runtime{},fmt.Errorf("decode Verdent system template: %w",err)}
 		if strings.TrimSpace(template.System)=="" { return Runtime{},errors.New("Verdent system template is missing encrypted system field") }
 		r.Protocol.SystemCiphertext=template.System
 		r.Protocol.ModelCatalogVersion=strings.TrimSpace(template.ModelCatalogVersion)
+		r.Protocol.Effort=strings.TrimSpace(template.Effort)
+		r.Protocol.Thinking=template.Thinking
 		if template.NativeAPI!=nil { r.Protocol.NativeAPI=*template.NativeAPI }
 	}
 	if raw:=strings.TrimSpace(getenv("VERDENT_NATIVE_API"));raw!="" {
