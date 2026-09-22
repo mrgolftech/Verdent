@@ -12,6 +12,7 @@ accounts.json
 *.secrets.json
 accounts/
 state/
+data/
 
 # IDE / OS
 .vscode/
