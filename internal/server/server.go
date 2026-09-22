@@ -89,7 +89,7 @@ func (s *Server) selectAccount(r *http.Request) (*account.Account,error) {
 	explicit:=r.Header.Get("X-Verdent-Account")
 	a:=s.Accounts.Select(session,explicit)
 	if a==nil { return nil,fmt.Errorf("no eligible Verdent account") }
-	return a,nil
+	return s.ensureFreshAccount(r.Context(),a)
 }
 
 func randomID(prefix string) string {
