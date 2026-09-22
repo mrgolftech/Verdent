@@ -91,8 +91,7 @@ func (s FileStore) Save(credentials []Credential) error {
 		tmp.Close()
 		return fmt.Errorf("secure accounts temp file: %w", err)
 	}
-	if _, err := tmp.Write(append(data, '
-')); err != nil {
+	if _, err := tmp.Write(append(data, '\\n')); err != nil {
 		tmp.Close()
 		return fmt.Errorf("write accounts temp file: %w", err)
 	}
