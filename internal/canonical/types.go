@@ -34,10 +34,19 @@ type Message struct {
 	Content []ContentBlock `json:"content"`
 }
 
+type ToolKind string
+
+const (
+	ToolKindFunction ToolKind = "function"
+	ToolKindCustom   ToolKind = "custom"
+)
+
 type Tool struct {
+	Kind        ToolKind        `json:"kind,omitempty"`
 	Name        string          `json:"name"`
 	Description string          `json:"description,omitempty"`
 	InputSchema json.RawMessage `json:"input_schema,omitempty"`
+	Format      json.RawMessage `json:"format,omitempty"`
 }
 
 type ToolChoiceType string
