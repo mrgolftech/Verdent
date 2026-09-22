@@ -49,7 +49,7 @@ func TestPKCEFlowMatchesObservedVerdentShape(t *testing.T) {
 	if authURL.Path != "/auth" || authURL.Query().Get("intent") != "signin" || authURL.Query().Get("ots") != "deck" || authURL.Query().Get("source") != "deck" {
 		t.Fatalf("unexpected auth URL: %s", authURL)
 	}
-	if len(authURL.Query().Get("challenge")) != 43 || authURL.Query().Get("id") != strings.Repeat("", 0)+authURL.Query().Get("id") || len(authURL.Query().Get("id")) != 32 {
+	if len(authURL.Query().Get("challenge")) != 43 || len(authURL.Query().Get("id")) != 32 {
 		t.Fatalf("missing PKCE/request identity: %s", authURL)
 	}
 	callbackURL, err := url.Parse(authURL.Query().Get("callback"))
