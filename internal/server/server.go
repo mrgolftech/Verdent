@@ -11,23 +11,60 @@ import (
 
 	"github.com/mrgolftech/Verdent/internal/account"
 	"github.com/mrgolftech/Verdent/internal/protocol"
+	"github.com/mrgolftech/Verdent/internal/verdentauth"
+	"github.com/mrgolftech/Verdent/internal/webui"
 )
 
 type Server struct {
 	Accounts       *account.Router
+	AccountStore   account.FileStore
 	ProtocolConfig protocol.Config
 	RequestTimeout time.Duration
 	APIKey         string
+	AdminUser      string
+	AdminPassword  string
+	PublicBaseURL  string
+	Version        string
+	OAuth          *verdentauth.Manager
 	NewClient      func(account.Account, protocol.Config, time.Duration) (*protocol.Client,error)
+	adminSessions  *adminSessions
 }
 
 func New(accounts *account.Router,cfg protocol.Config) *Server {
-	return &Server{Accounts:accounts,ProtocolConfig:cfg,RequestTimeout:5*time.Minute,NewClient:account.NewProtocolClient}
+	return &Server{
+		Accounts:accounts,ProtocolConfig:cfg,RequestTimeout:5*time.Minute,
+		AdminUser:"admin",Version:"dev",NewClient:account.NewProtocolClient,
+		adminSessions:newAdminSessions(),
+	}
 }
 
 func (s *Server) Handler() http.Handler {
 	mux:=http.NewServeMux()
 	mux.HandleFunc("GET /healthz",func(w http.ResponseWriter,r *http.Request){ writeJSON(w,http.StatusOK,map[string]any{"ok":true}) })
+
+	mux.HandleFunc("GET /login",webui.Page("login.html"))
+	mux.Handle("/ui/",http.StripPrefix("/ui/",webui.Assets()))
+	mux.HandleFunc("GET /",func(w http.ResponseWriter,r *http.Request){
+		if !s.adminAuthorized(r) { http.Redirect(w,r,"/login",http.StatusFound); return }
+		webui.Page("index.html")(w,r)
+	})
+
+	mux.HandleFunc("POST /api/auth/login",s.handleAdminLogin)
+	mux.HandleFunc("POST /api/auth/logout",s.handleAdminLogout)
+	mux.HandleFunc("GET /api/auth/session",s.handleAdminSession)
+	mux.HandleFunc("GET /api/auth/verdent/callback",s.handleVerdentOAuthCallback)
+	mux.HandleFunc("POST /api/auth/verdent/start",s.admin(s.handleVerdentOAuthStart))
+	mux.HandleFunc("GET /api/auth/verdent/status",s.admin(s.handleVerdentOAuthStatus))
+	mux.HandleFunc("POST /api/auth/verdent/desktop",s.admin(s.handleVerdentDesktopImport))
+	mux.HandleFunc("GET /api/overview",s.admin(s.handleAdminOverview))
+	mux.HandleFunc("GET /api/accounts",s.admin(s.handleAdminAccounts))
+	mux.HandleFunc("POST /api/accounts/token",s.admin(s.handleAdminAddToken))
+	mux.HandleFunc("POST /api/accounts/{id}/state",s.admin(s.handleAdminAccountState))
+	mux.HandleFunc("POST /api/accounts/{id}/proxy",s.admin(s.handleAdminAccountProxy))
+	mux.HandleFunc("POST /api/accounts/{id}/test",s.admin(s.handleAdminAccountTest))
+	mux.HandleFunc("DELETE /api/accounts/{id}",s.admin(s.handleAdminAccountDelete))
+	mux.HandleFunc("GET /api/models",s.admin(s.handleAdminModels))
+
 	mux.HandleFunc("GET /v1/models",s.auth(s.handleModels))
 	mux.HandleFunc("POST /v1/chat/completions",s.auth(s.handleChatCompletions))
 	mux.HandleFunc("POST /v1/responses",s.auth(s.handleResponses))
