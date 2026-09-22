@@ -158,14 +158,19 @@ func (s *Server) handleAdminAccountTest(w http.ResponseWriter, r *http.Request) 
 		writeJSON(w, http.StatusNotFound, map[string]any{"error": "account not found"})
 		return
 	}
-	client, err := s.NewClient(account.Account{Credential: credential, State: account.StateHealthy}, s.ProtocolConfig, 30*time.Second)
+	selected, err := s.ensureFreshAccount(r.Context(), &account.Account{Credential: credential, State: account.StateHealthy})
+	if err != nil {
+		writeJSON(w, http.StatusBadGateway, map[string]any{"error": err.Error()})
+		return
+	}
+	client, err := s.NewClient(*selected, s.ProtocolConfig, 30*time.Second)
 	if err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
 		return
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 	defer cancel()
-	models, err := client.DiscoverModels(ctx, credential.Token)
+	models, err := client.DiscoverModels(ctx, selected.Credential.Token)
 	if err != nil {
 		writeJSON(w, http.StatusBadGateway, map[string]any{"error": err.Error()})
 		return
@@ -177,6 +182,11 @@ func (s *Server) handleAdminModels(w http.ResponseWriter, r *http.Request) {
 	selected := s.Accounts.Select("admin-model-catalog", "")
 	if selected == nil {
 		writeJSON(w, http.StatusOK, map[string]any{"models": []any{}, "error": "no eligible account"})
+		return
+	}
+	selected, err := s.ensureFreshAccount(r.Context(), selected)
+	if err != nil {
+		writeJSON(w, http.StatusBadGateway, map[string]any{"error": err.Error()})
 		return
 	}
 	client, err := s.NewClient(*selected, s.ProtocolConfig, 30*time.Second)
@@ -398,6 +408,10 @@ func (s *Server) persistAccounts() error {
 
 func toAccountView(item account.Account) accountView {
 	meta := account.MetadataFromToken(item.Credential.Token)
+	expires := meta.Expires
+	if item.Credential.TokenExpiresAt > 0 {
+		expires = item.Credential.TokenExpiresAt
+	}
 	return accountView{
 		ID: item.Credential.ID,
 		Label: item.Credential.Label,
@@ -406,7 +420,7 @@ func toAccountView(item account.Account) accountView {
 		TeamID: item.Credential.TeamID,
 		ProxyURL: maskProxyURL(item.Credential.ProxyURL),
 		TokenUID: meta.UID,
-		TokenExpires: meta.Expires,
+		TokenExpires: expires,
 		CooldownUntil: item.CooldownUntil,
 		LastError: item.LastError,
 	}
