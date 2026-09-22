@@ -15,6 +15,9 @@ import (
 type Runtime struct {
 	Listen         string
 	APIKey         string
+	AdminUser      string
+	AdminPassword  string
+	AccountsFile   string
 	RequestTimeout time.Duration
 	Protocol       protocol.Config
 	Accounts       []account.Credential
@@ -41,6 +44,9 @@ func load(getenv func(string)string, readFile func(string)([]byte,error)) (Runti
 	r:=Runtime{
 		Listen: strings.TrimSpace(getenv("VERDENT_LISTEN")),
 		APIKey: getenv("VERDENT_API_KEY"),
+		AdminUser: strings.TrimSpace(getenv("VERDENT_ADMIN_USER")),
+		AdminPassword: getenv("VERDENT_ADMIN_PASSWORD"),
+		AccountsFile: strings.TrimSpace(getenv("VERDENT_ACCOUNTS_FILE")),
 		Protocol: protocol.Config{
 			Endpoint:strings.TrimSpace(getenv("VERDENT_ENDPOINT")),
 			CatalogEndpoint:strings.TrimSpace(getenv("VERDENT_CATALOG_ENDPOINT")),
@@ -52,29 +58,36 @@ func load(getenv func(string)string, readFile func(string)([]byte,error)) (Runti
 		},
 	}
 	if r.Listen=="" { r.Listen=":5084" }
+	if r.AdminUser=="" { r.AdminUser="admin" }
+	if r.AdminPassword=="" { r.AdminPassword=r.APIKey }
+	if r.AccountsFile=="" { r.AccountsFile="data/accounts.json" }
 	r.RequestTimeout=5*time.Minute
 	if raw:=strings.TrimSpace(getenv("VERDENT_REQUEST_TIMEOUT"));raw!="" { d,err:=time.ParseDuration(raw);if err!=nil{return Runtime{},fmt.Errorf("VERDENT_REQUEST_TIMEOUT: %w",err)};if d<=0{return Runtime{},errors.New("VERDENT_REQUEST_TIMEOUT must be positive")};r.RequestTimeout=d }
 	if r.Protocol.AppVersion=="" { return Runtime{},errors.New("VERDENT_APP_VERSION is required") }
 	if r.Protocol.BetaHeader=="" { return Runtime{},errors.New("VERDENT_PROXY_BETA is required") }
 	if r.Protocol.Sign=="" { return Runtime{},errors.New("VERDENT_PROXY_SIGN is required") }
 
-	if path:=strings.TrimSpace(getenv("VERDENT_ACCOUNTS_FILE"));path!="" {
-		data,err:=readFile(path);if err!=nil{return Runtime{},fmt.Errorf("read accounts file: %w",err)}
+	if data,err:=readFile(r.AccountsFile);err==nil {
 		var stored []storedCredential
 		var wrapped accountFile
 		if err:=json.Unmarshal(data,&wrapped);err==nil && len(wrapped.Accounts)>0 { stored=wrapped.Accounts } else {
 			if err:=json.Unmarshal(data,&stored);err!=nil{return Runtime{},fmt.Errorf("decode accounts file: %w",err)}
 		}
 		for _,item:=range stored { r.Accounts=append(r.Accounts,item.runtime()) }
-	} else if token:=strings.TrimSpace(getenv("VERDENT_TOKEN"));token!="" {
-		id:=strings.TrimSpace(getenv("VERDENT_ACCOUNT_ID"));if id==""{id="default"}
-		r.Accounts=[]account.Credential{{
-			ID:id,Label:strings.TrimSpace(getenv("VERDENT_ACCOUNT_LABEL")),Token:token,
-			DeviceID:strings.TrimSpace(getenv("VERDENT_DEVICE_ID")),TeamID:strings.TrimSpace(getenv("VERDENT_TEAM_ID")),
-			ProxyURL:strings.TrimSpace(getenv("VERDENT_PROXY")),
-		}}
+	} else if !errors.Is(err,os.ErrNotExist) {
+		return Runtime{},fmt.Errorf("read accounts file: %w",err)
 	}
-	if len(r.Accounts)==0 { return Runtime{},errors.New("no Verdent accounts configured") }
+	if len(r.Accounts)==0 {
+		if token:=strings.TrimSpace(getenv("VERDENT_TOKEN"));token!="" {
+			id:=strings.TrimSpace(getenv("VERDENT_ACCOUNT_ID"));if id==""{id=account.StableAccountID(token,strings.TrimSpace(getenv("VERDENT_TEAM_ID")))}
+			deviceID:=strings.TrimSpace(getenv("VERDENT_DEVICE_ID"));if deviceID==""{deviceID=account.NewDeviceID()}
+			r.Accounts=[]account.Credential{{
+				ID:id,Label:strings.TrimSpace(getenv("VERDENT_ACCOUNT_LABEL")),Token:token,
+				DeviceID:deviceID,TeamID:strings.TrimSpace(getenv("VERDENT_TEAM_ID")),
+				ProxyURL:strings.TrimSpace(getenv("VERDENT_PROXY")),
+			}}
+		}
+	}
 	seen:=map[string]bool{}
 	for i:=range r.Accounts {
 		a:=&r.Accounts[i]
