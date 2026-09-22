@@ -13,12 +13,14 @@ type FileStore struct {
 }
 
 type storedCredential struct {
-	ID       string `json:"id"`
-	Label    string `json:"label,omitempty"`
-	Token    string `json:"token"`
-	DeviceID string `json:"device_id"`
-	TeamID   string `json:"team_id,omitempty"`
-	ProxyURL string `json:"proxy_url,omitempty"`
+	ID             string `json:"id"`
+	Label          string `json:"label,omitempty"`
+	Token          string `json:"token"`
+	RefreshToken   string `json:"refresh_token,omitempty"`
+	TokenExpiresAt int64  `json:"token_expires_at,omitempty"`
+	DeviceID       string `json:"device_id"`
+	TeamID         string `json:"team_id,omitempty"`
+	ProxyURL       string `json:"proxy_url,omitempty"`
 }
 
 type storedAccounts struct {
@@ -53,6 +55,7 @@ func (s FileStore) Load() ([]Credential, error) {
 		}
 		out = append(out, Credential{
 			ID: item.ID, Label: item.Label, Token: item.Token,
+			RefreshToken: item.RefreshToken, TokenExpiresAt: item.TokenExpiresAt,
 			DeviceID: item.DeviceID, TeamID: item.TeamID, ProxyURL: item.ProxyURL,
 		})
 	}
@@ -74,6 +77,7 @@ func (s FileStore) Save(credentials []Credential) error {
 		}
 		payload.Accounts = append(payload.Accounts, storedCredential{
 			ID: credential.ID, Label: credential.Label, Token: credential.Token,
+			RefreshToken: credential.RefreshToken, TokenExpiresAt: credential.TokenExpiresAt,
 			DeviceID: credential.DeviceID, TeamID: credential.TeamID, ProxyURL: credential.ProxyURL,
 		})
 	}
