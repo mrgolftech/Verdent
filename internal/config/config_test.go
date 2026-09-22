@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func TestLoadSingleAccountFromEnv(t *testing.T) {
@@ -27,4 +28,39 @@ func TestLoadAccountsFile(t *testing.T) {
 func TestLoadRejectsMissingProtocolConfig(t *testing.T) {
 	env:=map[string]string{"VERDENT_TOKEN":"t","VERDENT_DEVICE_ID":"d"}
 	if _,err:=load(func(k string)string{return env[k]},os.ReadFile);err==nil { t.Fatal("expected missing protocol config error") }
+}
+
+
+func TestLoadCapturedDesktopTemplateAndProtocolDefaults(t *testing.T) {
+	dir:=t.TempDir()
+	templatePath:=filepath.Join(dir,"template.json")
+	template:=`{"system":"captured-ciphertext","model_catalog_version":"model-catalog-live","native_api":false}`
+	if err:=os.WriteFile(templatePath,[]byte(template),0600);err!=nil{t.Fatal(err)}
+	env:=map[string]string{
+		"VERDENT_APP_VERSION":"2.15.1",
+		"VERDENT_PROXY_BETA":"hybrid-stream@20250919",
+		"VERDENT_PROXY_SIGN":"protocol-sign-for-test-only",
+		"VERDENT_SYSTEM_TEMPLATE_FILE":templatePath,
+	}
+	r,err:=load(func(k string)string{return env[k]},os.ReadFile);if err!=nil{t.Fatal(err)}
+	if r.Protocol.SystemCiphertext!="captured-ciphertext" || r.Protocol.ModelCatalogVersion!="model-catalog-live" {
+		t.Fatalf("template not loaded: %#v",r.Protocol)
+	}
+	if r.Protocol.NativeAPI { t.Fatal("native_api should match current Desktop capture") }
+	if r.Protocol.MinRequestInterval!=1200*time.Millisecond { t.Fatalf("interval=%v",r.Protocol.MinRequestInterval) }
+	if len(r.Protocol.RetryDelays)!=3 || r.Protocol.RetryDelays[0]!=10*time.Second || r.Protocol.RetryDelays[2]!=45*time.Second {
+		t.Fatalf("retry delays=%v",r.Protocol.RetryDelays)
+	}
+}
+
+func TestNativeAPIEnvOverridesTemplate(t *testing.T) {
+	dir:=t.TempDir()
+	templatePath:=filepath.Join(dir,"template.json")
+	if err:=os.WriteFile(templatePath,[]byte(`{"system":"captured","native_api":false}`),0600);err!=nil{t.Fatal(err)}
+	env:=map[string]string{
+		"VERDENT_APP_VERSION":"2.15.1","VERDENT_PROXY_BETA":"beta","VERDENT_PROXY_SIGN":"protocol-sign-for-test-only",
+		"VERDENT_SYSTEM_TEMPLATE_FILE":templatePath,"VERDENT_NATIVE_API":"true",
+	}
+	r,err:=load(func(k string)string{return env[k]},os.ReadFile);if err!=nil{t.Fatal(err)}
+	if !r.Protocol.NativeAPI { t.Fatal("explicit VERDENT_NATIVE_API should win") }
 }
