@@ -57,8 +57,56 @@ func (r *Router) addLocked(c Credential) {
 }
 
 func (r *Router) Add(c Credential) {
-	r.mu.Lock(); defer r.mu.Unlock()
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	r.addLocked(c)
+}
+
+func (r *Router) Remove(id string) bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.byID[id] == nil {
+		return false
+	}
+	delete(r.byID, id)
+	for i, a := range r.accounts {
+		if a.Credential.ID == id {
+			r.accounts = append(r.accounts[:i], r.accounts[i+1:]...)
+			if len(r.accounts) == 0 {
+				r.cursor = 0
+			} else if r.cursor >= len(r.accounts) {
+				r.cursor %= len(r.accounts)
+			}
+			break
+		}
+	}
+	for session, accountID := range r.sessions {
+		if accountID == id {
+			delete(r.sessions, session)
+		}
+	}
+	return true
+}
+
+func (r *Router) UpdateCredential(id string, mutate func(*Credential)) bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	a := r.byID[id]
+	if a == nil || mutate == nil {
+		return false
+	}
+	mutate(&a.Credential)
+	return true
+}
+
+func (r *Router) Credentials() []Credential {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	out := make([]Credential, 0, len(r.accounts))
+	for _, a := range r.accounts {
+		out = append(out, a.Credential)
+	}
+	return out
 }
 
 // Select returns an eligible account and pins it to session. An explicit ID
