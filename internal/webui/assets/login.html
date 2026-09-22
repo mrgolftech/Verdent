@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>登录 · Verdent Gateway</title>
+  <link rel="stylesheet" href="/ui/style.css">
+</head>
+<body class="login-page">
+  <aside class="login-hero">
+    <div class="hero-glow"></div>
+    <div class="hero-brand"><div class="brand-mark">VD</div><strong>Verdent Gateway</strong></div>
+    <div class="hero-copy"><span class="hero-tag">Self-hosted gateway</span><h1>一个入口，管理 Verdent 多账号。</h1><p>OpenAI / Responses 兼容、原生工具调用、账号状态机和每账号固定出口代理。</p></div>
+    <div class="hero-foot">Go · Native Tool Calling · PKCE</div>
+  </aside>
+  <main class="login-main">
+    <form id="login-form" class="login-card">
+      <div class="mobile-login-brand"><div class="brand-mark">VD</div><strong>Verdent Gateway</strong></div>
+      <div><h2>登录控制台</h2><p>使用管理员账号继续。</p></div>
+      <label><span>用户名</span><input id="username" autocomplete="username" value="admin" required></label>
+      <label><span>密码</span><input id="password" type="password" autocomplete="current-password" required autofocus></label>
+      <button class="btn primary wide" type="submit">登录</button>
+      <p id="login-error" class="form-error"></p>
+    </form>
+  </main>
+  <script src="/ui/login.js"></script>
+</body>
+</html>
