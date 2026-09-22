@@ -92,7 +92,7 @@ func TestAdminConsoleLoginAndManualAccountPersistence(t *testing.T) {
 	if bytes.Contains(listBody, []byte(token)) || bytes.Contains(listBody, []byte("user:pass")) {
 		t.Fatalf("account listing leaked secret material: %s", listBody)
 	}
-	if !bytes.Contains(listBody, []byte("test-account")) || !bytes.Contains(listBody, []byte("***")) {
+	if !bytes.Contains(listBody, []byte("test-account")) || !bytes.Contains(listBody, []byte("http://127.0.0.1:8080")) {
 		t.Fatalf("account listing missing expected safe fields: %s", listBody)
 	}
 
