@@ -340,7 +340,7 @@ func maskProxyURL(raw string) string {
 		return "***"
 	}
 	if parsed.User != nil {
-		parsed.User = url.UserPassword("***", "***")
+		parsed.User = nil
 	}
 	return parsed.String()
 }
