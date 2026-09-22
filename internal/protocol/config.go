@@ -4,6 +4,7 @@ import (
 	"errors"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/mrgolftech/Verdent/internal/canonical"
 )
@@ -29,9 +30,13 @@ type Config struct {
 	OSName        string
 	CPUArch       string
 	TeamID        string
-	UserAgent     string
-	NativeAPI     bool
-	SystemTrailer []canonical.ContentBlock
+	UserAgent          string
+	NativeAPI          bool
+	SystemCiphertext    string
+	ModelCatalogVersion string
+	MinRequestInterval time.Duration
+	RetryDelays        []time.Duration
+	SystemTrailer      []canonical.ContentBlock
 }
 
 func (c Config) WithDefaults() Config {
@@ -50,6 +55,7 @@ func (c Config) WithDefaults() Config {
 	}
 	if c.CPUArch == "" { c.CPUArch = runtime.GOARCH }
 	if c.TeamID == "" { c.TeamID = "0" }
+	if c.UserAgent == "" && c.AppVersion != "" { c.UserAgent = "Verdent/" + c.AppVersion }
 	return c
 }
 
