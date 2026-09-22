@@ -4,7 +4,7 @@ A clean-room Verdent API compatibility gateway focused on reliable agent/tool wo
 
 ## Current development status
 
-Implemented on `feat/admin-ui-auth`:
+Implemented on `fix/live-protocol-alignment`:
 
 - OpenAI-compatible `POST /v1/chat/completions`
 - OpenAI Responses-compatible `POST /v1/responses`
@@ -18,7 +18,7 @@ Implemented on `feat/admin-ui-auth`:
 - admin login sessions with HttpOnly cookies
 - three account enrollment paths: browser PKCE, Verdent Desktop import, and manual token import
 
-The browser PKCE path is **experimental**. It implements the previously observed Verdent Desktop authorization shape, but recent OpenFork work removed browser OAuth enrollment and retained Desktop credential import as its supported path. Treat browser login as unverified against the current Verdent production client until a live login is tested.
+The browser PKCE path now follows the currently observed Verdent shape: `/auth` with S256 `challenge` + `state`, callback `code` exchange at `/passport/pkce/callback`, persisted expiry/refresh credentials, and automatic refresh through `/passport/token/refresh` when available. It is still marked **experimental until one live production login is verified on the deployed gateway**.
 
 ## Management console
 
@@ -46,7 +46,7 @@ If `VERDENT_ADMIN_PASSWORD` is omitted, the console falls back to `VERDENT_API_K
 
 The Accounts page provides:
 
-1. **Browser sign-in (experimental)** — creates a PKCE verifier/challenge, opens the Verdent authorization page, validates state/rid/nonce on callback, exchanges `code + codeVerifier`, and saves the resulting access token.
+1. **Browser sign-in (experimental until live-verified)** — creates a PKCE verifier/challenge, opens the Verdent authorization page, validates OAuth `state`, exchanges `code + codeVerifier`, persists access/refresh credentials and refreshes expiring access tokens when the service returns a refresh token.
 2. **Import from Verdent Desktop** — best-effort import from the current local desktop credential. macOS Keychain and Linux Secret Service have direct helpers; automatic Windows Credential Manager import is not enabled yet.
 3. **Manual token** — useful for debugging, headless servers, or fallback migration.
 
@@ -129,6 +129,18 @@ Client base URL:
 http://127.0.0.1:5084/v1
 ```
 
+
+## Current Desktop-alignment behavior
+
+The current protocol path incorporates the September 22 findings from an independent Verdent2API implementation and keeps the evidence-backed pieces isolated behind configuration:
+
+- a captured Desktop `system` ciphertext can be loaded from `VERDENT_SYSTEM_TEMPLATE_FILE`; downstream client system instructions are then folded into the first user message instead of replacing the fingerprinted upstream field
+- message content is emitted as block arrays with a leading `<timestamp>` block and `cache_control: {"type":"ephemeral"}` on the final block
+- only assistant history carries the upstream `model` field
+- `native_api` defaults to the captured value (`false`) and can be overridden explicitly
+- each account has its own upstream pacing gate (default 1.2 s between starts) plus bounded retry/backoff for 429 and explicit retryable 5xx responses
+- retries always remain on that account's isolated transport/proxy; there is no fallback to an environment/system proxy
+
 ## Design principles
 
 1. **Protocol first** — Verdent transport stays isolated from API compatibility code.
@@ -146,7 +158,8 @@ Synthetic protocol, compatibility, account-routing, Responses, UI-management, an
 The project is **not yet declared compatible with the latest Verdent Desktop build**. Before merging this development work as a release candidate, the current production client should be used to verify:
 
 - current `X-Version-Code`, beta header, and proxy-sign behavior
-- browser PKCE enrollment against the current authentication service
+- browser PKCE enrollment and refresh behavior against the current authentication service
+- captured Desktop `system` fingerprint / model catalog version
 - current model catalog response
 - native tool-call streaming, especially `apply_patch`
 - account suspension / quota behavior
