@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/mrgolftech/Verdent/internal/account"
@@ -28,6 +29,7 @@ type Server struct {
 	OAuth          *verdentauth.Manager
 	NewClient      func(account.Account, protocol.Config, time.Duration) (*protocol.Client,error)
 	adminSessions  *adminSessions
+	refreshMu      sync.Mutex
 }
 
 func New(accounts *account.Router,cfg protocol.Config) *Server {
