@@ -5,7 +5,11 @@ bin/
 
 # Runtime secrets/state
 .env
+.env.*
+!.env.example
 config.json
+accounts.json
+*.secrets.json
 accounts/
 state/
 

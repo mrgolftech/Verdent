@@ -2,28 +2,20 @@
 
 A clean-room Verdent API compatibility gateway focused on reliable agent/tool workflows.
 
-## Goals
+## Implemented on the development branch
 
-- OpenAI-compatible `/v1/chat/completions`
-- OpenAI Responses API `/v1/responses`
-- Anthropic-compatible `/v1/messages`
-- Dynamic `/v1/models` backed by Verdent model discovery
-- Native Verdent structured tool calling (not prompt-only emulation)
-- Streaming text / thinking / tool events
-- Multi-account routing with health, quota, cooldown and suspension states
-- Per-account outbound proxy affinity
-- Compatibility testing for OpenCode, Hermes Agent and Codex CLI
+- OpenAI-compatible `POST /v1/chat/completions`
+- OpenAI-compatible `GET /v1/models` backed by dynamic Verdent model discovery
+- streaming text, reasoning and native structured tool-call translation
+- non-streaming tool-call aggregation
+- AES-GCM Verdent protocol codec and request envelope
+- multi-account routing with session affinity, cooldown and suspension states
+- per-account HTTP/HTTPS outbound proxy affinity
+- optional local Bearer API authentication
 
-## Design principles
+Planned next: OpenAI Responses API, Anthropic Messages API, persistent account management, live current-client verification, and integration regression tests for OpenCode/Hermes/Codex.
 
-1. **Protocol first** — keep Verdent transport isolated from API compatibility layers.
-2. **Native tools first** — structured tools/tool_choice are the primary path; text-contract parsing is fallback only.
-3. **Dynamic catalog** — model capabilities must be discovered at runtime rather than hard-coded.
-4. **Account state machine** — auth failure, rate limit, quota exhaustion and account suspension are different states.
-5. **Stable egress** — an account can be pinned to one outbound proxy/transport.
-6. **Clean-room implementation** — do not copy code from sources without compatible licensing.
-
-## Planned architecture
+## Architecture
 
 ```text
 OpenAI / Anthropic clients
@@ -44,47 +36,41 @@ Account router + per-account transport
 Verdent upstream
 ```
 
-## Roadmap
+## Development run
 
-### Phase 0 — bootstrap
-- repository conventions
-- protocol notes and source-attribution record
-- Go module + test harness
-- CI
+1. Copy `.env.example` values into your process environment.
+2. Configure either a single account with `VERDENT_TOKEN` + `VERDENT_DEVICE_ID`, or a multi-account JSON file with `VERDENT_ACCOUNTS_FILE`.
+3. Supply the Verdent protocol version/beta/sign values verified for the current client.
+4. Run:
 
-### Phase 1 — current Verdent protocol
-- request envelope and AES-GCM codec
-- headers/device metadata
-- SSE parser
-- runtime model catalog
-- protocol fixtures
+```bash
+go run ./cmd/verdent
+```
 
-### Phase 2 — native agent/tool compatibility
-- OpenAI tools -> Verdent structured tools
-- Verdent tool events -> OpenAI/Anthropic tool calls
-- thinking stream
-- parallel tool calls
-- tool result round-trip tests
+Default listen address: `:5084`.
 
-### Phase 3 — API surfaces
-- `/v1/chat/completions`
-- `/v1/responses`
-- `/v1/messages`
-- `/v1/models`
+Example client base URL:
 
-### Phase 4 — account routing
-- multi-account registry
-- cooldown/rate-limit handling
-- account suspension handling
-- per-account proxy binding
-- session/account affinity
+```text
+http://127.0.0.1:5084/v1
+```
 
-### Phase 5 — integration verification
-- OpenCode
-- Hermes Agent
-- Codex CLI
-- long-running agent regression suite
+Optional account/session routing headers:
 
-## Status
+- `X-Verdent-Account: <account-id>` selects one eligible account explicitly.
+- `X-Verdent-Session-ID: <stable-session-id>` keeps subsequent requests on the same eligible account.
 
-Bootstrap started September 2026. The current Verdent desktop protocol must be verified against the latest client before declaring compatibility.
+## Design principles
+
+1. **Protocol first** — Verdent transport stays isolated from client API compatibility.
+2. **Native tools first** — structured `tools` / `tool_choice` are the primary path; prompt-based tool emulation is not the normal path.
+3. **Dynamic catalog** — model capabilities are discovered at runtime rather than hard-coded.
+4. **Account state machine** — auth failure, throttling/quota and account suspension are distinct conditions.
+5. **Stable egress** — each account owns an isolated HTTP transport and can be pinned to one proxy.
+6. **Clean-room implementation** — source is not copied from projects without compatible licensing.
+
+## Status / verification boundary
+
+The implementation is covered by synthetic protocol and end-to-end tests. It is **not yet declared compatible with the latest Verdent desktop build** until the current client request headers, envelope fields, tool stream and catalog behavior are verified against a sanitized live capture.
+
+See `docs/ARCHITECTURE.md`, `docs/PROTOCOL.md`, `CONTEXT.md`, and `THIRD_PARTY_NOTICES.md` for engineering notes.
