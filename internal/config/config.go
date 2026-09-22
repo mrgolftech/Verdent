@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -65,15 +66,42 @@ func load(getenv func(string)string, readFile func(string)([]byte,error)) (Runti
 			BetaHeader:strings.TrimSpace(getenv("VERDENT_PROXY_BETA")),
 			Sign:getenv("VERDENT_PROXY_SIGN"),
 			UserAgent:strings.TrimSpace(getenv("VERDENT_USER_AGENT")),
-			NativeAPI:true,
 		},
 	}
 	if r.Listen=="" { r.Listen=":5084" }
 	if r.AdminUser=="" { r.AdminUser="admin" }
 	if r.AdminPassword=="" { r.AdminPassword=r.APIKey }
 	if r.AccountsFile=="" { r.AccountsFile="data/accounts.json" }
+	r.Protocol.MinRequestInterval=1200*time.Millisecond
+	r.Protocol.RetryDelays=[]time.Duration{10*time.Second,25*time.Second,45*time.Second}
 	r.RequestTimeout=5*time.Minute
 	if raw:=strings.TrimSpace(getenv("VERDENT_REQUEST_TIMEOUT"));raw!="" { d,err:=time.ParseDuration(raw);if err!=nil{return Runtime{},fmt.Errorf("VERDENT_REQUEST_TIMEOUT: %w",err)};if d<=0{return Runtime{},errors.New("VERDENT_REQUEST_TIMEOUT must be positive")};r.RequestTimeout=d }
+	if raw:=strings.TrimSpace(getenv("VERDENT_MIN_REQUEST_INTERVAL"));raw!="" { d,err:=time.ParseDuration(raw);if err!=nil{return Runtime{},fmt.Errorf("VERDENT_MIN_REQUEST_INTERVAL: %w",err)};if d<0{return Runtime{},errors.New("VERDENT_MIN_REQUEST_INTERVAL cannot be negative")};r.Protocol.MinRequestInterval=d }
+	if raw:=strings.TrimSpace(getenv("VERDENT_RETRY_DELAYS"));raw!="" {
+		r.Protocol.RetryDelays=nil
+		for _,part:=range strings.Split(raw,",") {
+			d,err:=time.ParseDuration(strings.TrimSpace(part));if err!=nil{return Runtime{},fmt.Errorf("VERDENT_RETRY_DELAYS: %w",err)}
+			if d<0{return Runtime{},errors.New("VERDENT_RETRY_DELAYS cannot contain negative durations")}
+			r.Protocol.RetryDelays=append(r.Protocol.RetryDelays,d)
+		}
+	}
+	if path:=strings.TrimSpace(getenv("VERDENT_SYSTEM_TEMPLATE_FILE"));path!="" {
+		data,err:=readFile(path);if err!=nil{return Runtime{},fmt.Errorf("read Verdent system template: %w",err)}
+		var template struct {
+			System string `json:"system"`
+			ModelCatalogVersion string `json:"model_catalog_version"`
+			NativeAPI *bool `json:"native_api"`
+		}
+		if err:=json.Unmarshal(data,&template);err!=nil{return Runtime{},fmt.Errorf("decode Verdent system template: %w",err)}
+		if strings.TrimSpace(template.System)=="" { return Runtime{},errors.New("Verdent system template is missing encrypted system field") }
+		r.Protocol.SystemCiphertext=template.System
+		r.Protocol.ModelCatalogVersion=strings.TrimSpace(template.ModelCatalogVersion)
+		if template.NativeAPI!=nil { r.Protocol.NativeAPI=*template.NativeAPI }
+	}
+	if raw:=strings.TrimSpace(getenv("VERDENT_NATIVE_API"));raw!="" {
+		v,err:=strconv.ParseBool(raw);if err!=nil{return Runtime{},fmt.Errorf("VERDENT_NATIVE_API: %w",err)}
+		r.Protocol.NativeAPI=v
+	}
 	if r.Protocol.AppVersion=="" { return Runtime{},errors.New("VERDENT_APP_VERSION is required") }
 	if r.Protocol.BetaHeader=="" { return Runtime{},errors.New("VERDENT_PROXY_BETA is required") }
 	if r.Protocol.Sign=="" { return Runtime{},errors.New("VERDENT_PROXY_SIGN is required") }
