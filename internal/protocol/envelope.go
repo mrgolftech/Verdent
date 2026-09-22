@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
+	"time"
 
 	"github.com/mrgolftech/Verdent/internal/canonical"
 )
@@ -39,6 +41,7 @@ type EnvelopeOptions struct {
 	Environment         Environment
 	Trace               TraceMetadata
 	ModelCatalogVersion string
+	Now                  time.Time
 }
 
 type Envelope struct {
@@ -65,6 +68,8 @@ type Envelope struct {
 	ContextWindowTokens  int            `json:"context_window_tokens,omitempty"`
 	IsEco                bool           `json:"is_eco"`
 	IsAuto               bool           `json:"is_auto"`
+	IsFree               bool           `json:"is_free"`
+	IsLimitFree          bool           `json:"is_limit_free"`
 	NativeAPI            bool           `json:"native_api"`
 }
 
@@ -77,12 +82,26 @@ func BuildEnvelope(req canonical.Request, cfg Config, codec *Codec, opt Envelope
 		return Envelope{}, errors.New("session, conversation and reaction IDs are required")
 	}
 
-	system := append([]canonical.ContentBlock(nil), req.System...)
-	system = append(system, cfg.SystemTrailer...)
+	systemBlocks := append([]canonical.ContentBlock(nil), req.System...)
+	systemBlocks = append(systemBlocks, cfg.SystemTrailer...)
 	messages := normalizeMessages(req.Messages)
-	encSystem, err := codec.EncodeJSON(system)
-	if err != nil { return Envelope{}, fmt.Errorf("encode system: %w", err) }
-	encMessages, err := codec.EncodeJSON(toUpstreamMessages(messages, req.Model))
+
+	var encSystem string
+	var err error
+	if strings.TrimSpace(cfg.SystemCiphertext) != "" {
+		// Current Verdent production behavior fingerprints the encrypted Desktop
+		// system field. Keep that captured ciphertext byte-for-byte and move the
+		// downstream client's system instructions into the first user turn.
+		encSystem = cfg.SystemCiphertext
+		messages = foldSystemIntoMessages(systemBlocks, messages)
+	} else {
+		encSystem, err = codec.EncodeJSON(systemBlocks)
+		if err != nil { return Envelope{}, fmt.Errorf("encode system: %w", err) }
+	}
+
+	now := opt.Now
+	if now.IsZero() { now = time.Now() }
+	encMessages, err := codec.EncodeJSON(toUpstreamMessages(messages, req.Model, now))
 	if err != nil { return Envelope{}, fmt.Errorf("encode messages: %w", err) }
 
 	maxTokens := req.MaxTokens
@@ -100,30 +119,75 @@ func BuildEnvelope(req canonical.Request, cfg Config, codec *Codec, opt Envelope
 	if trace.OSType == "" { trace.OSType = cfg.OSType }
 	if trace.UserQuery == "" { trace.UserQuery = req.UserQuery }
 
+	modelCatalogVersion := strings.TrimSpace(opt.ModelCatalogVersion)
+	if modelCatalogVersion == "" {
+		modelCatalogVersion = strings.TrimSpace(cfg.ModelCatalogVersion)
+	}
+
 	env := Envelope{
 		Channel: cfg.Channel, Model: req.Model, SessionID: opt.IDs.SessionID, ConvID: opt.IDs.ConvID, ReactID: opt.IDs.ReactID,
 		ReactType: cfg.ReactType, Stream: true, MaxTokens: maxTokens, Temperature: temperature,
 		System: encSystem, Messages: encMessages, AgentName: cfg.AgentName, Env: opt.Environment, Encrypt: true,
-		TraceTags: []string{}, TraceMetadata: trace, ModelCatalogVersion: opt.ModelCatalogVersion, Effort: req.Effort,
-		ContextWindowTokens: req.ContextWindowTokens, IsEco: false, IsAuto: false, NativeAPI: cfg.NativeAPI,
+		TraceTags: []string{}, TraceMetadata: trace, ModelCatalogVersion: modelCatalogVersion, Effort: req.Effort,
+		ContextWindowTokens: req.ContextWindowTokens, IsEco: false, IsAuto: false, IsFree: false, IsLimitFree: false,
+		NativeAPI: cfg.NativeAPI,
 	}
 
-	if len(req.Tools) > 0 {
+	allowTools := len(req.Tools) > 0
+	if req.ToolChoice != nil && req.ToolChoice.Type == canonical.ToolChoiceNone {
+		// Current Desktop captures do not expose a native "none" choice. The
+		// reliable representation is to omit tools entirely.
+		allowTools = false
+	}
+	if allowTools {
 		encTools, err := codec.EncodeJSON(toUpstreamTools(req.Tools, req.Model))
 		if err != nil { return Envelope{}, fmt.Errorf("encode tools: %w", err) }
 		env.Tools = encTools
 		if req.ToolChoice == nil { env.ToolChoice = map[string]any{"type":"auto"} }
 	}
-	if req.ToolChoice != nil {
+	if allowTools && req.ToolChoice != nil {
 		env.ToolChoice = toUpstreamToolChoice(*req.ToolChoice)
 	}
 	return env, nil
 }
 
-func toUpstreamMessages(messages []canonical.Message, model string) []map[string]any {
+func foldSystemIntoMessages(system []canonical.ContentBlock, messages []canonical.Message) []canonical.Message {
+	text := renderSystemText(system)
+	if text == "" {
+		return messages
+	}
+	block := canonical.ContentBlock{Type:canonical.BlockText, Text:"<system>\n" + text + "\n</system>"}
+	out := append([]canonical.Message(nil), messages...)
+	if len(out) > 0 && out[0].Role == canonical.RoleUser {
+		content := make([]canonical.ContentBlock, 0, len(out[0].Content)+1)
+		content = append(content, block)
+		content = append(content, out[0].Content...)
+		out[0].Content = content
+		return out
+	}
+	return append([]canonical.Message{{Role:canonical.RoleUser, Content:[]canonical.ContentBlock{block}}}, out...)
+}
+
+func renderSystemText(blocks []canonical.ContentBlock) string {
+	parts := make([]string, 0, len(blocks))
+	for _, block := range blocks {
+		if strings.TrimSpace(block.Text) != "" {
+			parts = append(parts, block.Text)
+			continue
+		}
+		if raw, err := json.Marshal(block); err == nil {
+			parts = append(parts, string(raw))
+		}
+	}
+	return strings.Join(parts, "\n\n")
+}
+
+func toUpstreamMessages(messages []canonical.Message, model string, now time.Time) []map[string]any {
 	out := make([]map[string]any, 0, len(messages))
-	for _, msg := range messages {
-		blocks := make([]map[string]any, 0, len(msg.Content))
+	timestamp := "<timestamp>" + now.Format("Mon Jan 02 2006 15:04:05 GMT-0700") + "</timestamp>\n"
+	for index, msg := range messages {
+		blocks := make([]map[string]any, 0, len(msg.Content)+1)
+		blocks = append(blocks, map[string]any{"type":"text","text":timestamp})
 		for _, b := range msg.Content {
 			switch b.Type {
 			case canonical.BlockText:
@@ -140,7 +204,14 @@ func toUpstreamMessages(messages []canonical.Message, model string) []map[string
 				blocks = append(blocks, map[string]any{"type":"tool_result","tool_use_id":b.ToolID,"content":b.Text,"is_error":b.IsError})
 			}
 		}
-		out = append(out, map[string]any{"role":string(msg.Role),"content":blocks,"model":model})
+		if index == len(messages)-1 && len(blocks) > 0 {
+			blocks[len(blocks)-1]["cache_control"] = map[string]any{"type":"ephemeral"}
+		}
+		upstream := map[string]any{"role":string(msg.Role),"content":blocks}
+		if msg.Role == canonical.RoleAssistant {
+			upstream["model"] = model
+		}
+		out = append(out, upstream)
 	}
 	return out
 }
@@ -168,8 +239,6 @@ func toUpstreamToolChoice(choice canonical.ToolChoice) map[string]any {
 	switch choice.Type {
 	case canonical.ToolChoiceAny:
 		return map[string]any{"type":"any"}
-	case canonical.ToolChoiceNone:
-		return map[string]any{"type":"none"}
 	case canonical.ToolChoiceTool:
 		return map[string]any{"type":"tool","name":choice.Name}
 	default:
