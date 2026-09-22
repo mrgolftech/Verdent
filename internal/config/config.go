@@ -20,7 +20,20 @@ type Runtime struct {
 	Accounts       []account.Credential
 }
 
-type accountFile struct { Accounts []account.Credential `json:"accounts"` }
+type storedCredential struct {
+	ID       string `json:"id"`
+	Label    string `json:"label,omitempty"`
+	Token    string `json:"token"`
+	DeviceID string `json:"device_id"`
+	TeamID   string `json:"team_id,omitempty"`
+	ProxyURL string `json:"proxy_url,omitempty"`
+}
+
+type accountFile struct { Accounts []storedCredential `json:"accounts"` }
+
+func (s storedCredential) runtime() account.Credential {
+	return account.Credential{ID:s.ID,Label:s.Label,Token:s.Token,DeviceID:s.DeviceID,TeamID:s.TeamID,ProxyURL:s.ProxyURL}
+}
 
 func Load() (Runtime,error) { return load(os.Getenv,os.ReadFile) }
 
@@ -47,12 +60,12 @@ func load(getenv func(string)string, readFile func(string)([]byte,error)) (Runti
 
 	if path:=strings.TrimSpace(getenv("VERDENT_ACCOUNTS_FILE"));path!="" {
 		data,err:=readFile(path);if err!=nil{return Runtime{},fmt.Errorf("read accounts file: %w",err)}
+		var stored []storedCredential
 		var wrapped accountFile
-		if err:=json.Unmarshal(data,&wrapped);err==nil && len(wrapped.Accounts)>0 { r.Accounts=wrapped.Accounts } else {
-			var direct []account.Credential
-			if err:=json.Unmarshal(data,&direct);err!=nil{return Runtime{},fmt.Errorf("decode accounts file: %w",err)}
-			r.Accounts=direct
+		if err:=json.Unmarshal(data,&wrapped);err==nil && len(wrapped.Accounts)>0 { stored=wrapped.Accounts } else {
+			if err:=json.Unmarshal(data,&stored);err!=nil{return Runtime{},fmt.Errorf("decode accounts file: %w",err)}
 		}
+		for _,item:=range stored { r.Accounts=append(r.Accounts,item.runtime()) }
 	} else if token:=strings.TrimSpace(getenv("VERDENT_TOKEN"));token!="" {
 		id:=strings.TrimSpace(getenv("VERDENT_ACCOUNT_ID"));if id==""{id="default"}
 		r.Accounts=[]account.Credential{{
