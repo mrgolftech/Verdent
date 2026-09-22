@@ -43,7 +43,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /healthz",func(w http.ResponseWriter,r *http.Request){ writeJSON(w,http.StatusOK,map[string]any{"ok":true}) })
 
 	mux.HandleFunc("GET /login",webui.Page("login.html"))
-	mux.Handle("/ui/",http.StripPrefix("/ui/",webui.Assets()))
+	mux.Handle("GET /ui/",http.StripPrefix("/ui/",webui.Assets()))
 	mux.HandleFunc("GET /",func(w http.ResponseWriter,r *http.Request){
 		if !s.adminAuthorized(r) { http.Redirect(w,r,"/login",http.StatusFound); return }
 		webui.Page("index.html")(w,r)
