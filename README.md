@@ -174,6 +174,28 @@ verdent-linux-amd64.tar.gz.sha256
 
 Both packages also include `.env.example` and `README.md`.
 
+### Build version reporting
+
+The management console shows the gateway version in the sidebar (`GET /api/overview`).
+
+The release workflow injects the git tag at build time:
+
+```bash
+go build -trimpath \
+  -ldflags="-s -w -X github.com/mrgolftech/Verdent/internal/server.Version=v0.1.0-alpha.4" \
+  -o verdent ./cmd/verdent
+```
+
+Without `-X`, the binary reports `dev`. Builds from a branch (not a tag) are stamped
+`<ref>+<short-sha>`, so an unreleased artifact never claims a tag it does not have.
+
+For a self-built binary the value can also be set at runtime, which takes precedence
+over the baked-in default:
+
+```bash
+VERDENT_VERSION=v0.1.0-alpha.4 ./verdent
+```
+
 ### Release build
 
 Push a version tag such as:

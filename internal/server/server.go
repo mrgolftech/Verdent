@@ -17,6 +17,14 @@ import (
 	"github.com/mrgolftech/Verdent/internal/webui"
 )
 
+// Version is the gateway build version reported by the management console.
+// It defaults to "dev" and is meant to be set at build time, e.g.
+//
+//	go build -ldflags "-X github.com/mrgolftech/Verdent/internal/server.Version=v0.1.0-alpha.4" ./cmd/verdent
+//
+// VERDENT_VERSION overrides it at runtime.
+var Version="dev"
+
 type Server struct {
 	Accounts       *account.Router
 	AccountStore   account.FileStore
@@ -37,7 +45,7 @@ type Server struct {
 func New(accounts *account.Router,cfg protocol.Config) *Server {
 	return &Server{
 		Accounts:accounts,ProtocolConfig:cfg,RequestTimeout:5*time.Minute,
-		AdminUser:"admin",Version:"dev",NewClient:account.NewProtocolClient,
+		AdminUser:"admin",Version:Version,NewClient:account.NewProtocolClient,
 		adminSessions:newAdminSessions(),
 	}
 }

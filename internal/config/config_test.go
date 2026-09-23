@@ -25,6 +25,16 @@ func TestLoadAccountsFile(t *testing.T) {
 	if len(r.Accounts)!=2 || r.Accounts[0].TeamID!="0" || r.Accounts[1].ProxyURL=="" { t.Fatalf("bad accounts: %#v",r.Accounts) }
 }
 
+func TestLoadVersionEnvOverride(t *testing.T) {
+	base:=map[string]string{"VERDENT_APP_VERSION":"2.test","VERDENT_PROXY_BETA":"beta","VERDENT_PROXY_SIGN":"protocol-sign-for-test-only"}
+	r,err:=load(func(k string)string{return base[k]},os.ReadFile);if err!=nil{t.Fatal(err)}
+	if r.Version!="" { t.Fatalf("unset VERDENT_VERSION should leave the build default untouched, got %q",r.Version) }
+	base["VERDENT_VERSION"]=" v0.1.0-alpha.4 "
+	r,err=load(func(k string)string{return base[k]},os.ReadFile);if err!=nil{t.Fatal(err)}
+	if r.Version!="v0.1.0-alpha.4" { t.Fatalf("version=%q",r.Version) }
+}
+
+
 func TestLoadRejectsMissingProtocolConfig(t *testing.T) {
 	env:=map[string]string{"VERDENT_TOKEN":"t","VERDENT_DEVICE_ID":"d"}
 	if _,err:=load(func(k string)string{return env[k]},os.ReadFile);err==nil { t.Fatal("expected missing protocol config error") }
