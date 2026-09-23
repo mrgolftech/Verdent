@@ -11,7 +11,7 @@ const (
 	StateHealthy     State = "healthy"
 	StateCoolingDown State = "cooling_down"
 	StateSuspended   State = "suspended"
-	StateDisabled    State = "disabled"
+	StateDisabled    State = "disabled" // effective/UI state for manually disabled accounts
 )
 
 type Credential struct {
@@ -23,6 +23,7 @@ type Credential struct {
 	DeviceID       string `json:"device_id"`
 	TeamID         string `json:"team_id,omitempty"`
 	ProxyURL       string `json:"proxy_url,omitempty"`
+	Disabled       bool   `json:"disabled,omitempty"`
 }
 
 type Account struct {
@@ -152,7 +153,7 @@ func (r *Router) Select(session, explicitID string) *Account {
 }
 
 func (r *Router) eligibleLocked(a *Account, now time.Time) bool {
-	if a == nil { return false }
+	if a == nil || a.Credential.Disabled { return false }
 	if a.State == StateCoolingDown && !a.CooldownUntil.After(now) {
 		a.State = StateHealthy
 		a.CooldownUntil = time.Time{}
@@ -176,7 +177,12 @@ func (r *Router) MarkSuspended(id, detail string) {
 func (r *Router) SetDisabled(id string, disabled bool) {
 	r.mu.Lock(); defer r.mu.Unlock()
 	if a := r.byID[id]; a != nil {
-		if disabled { a.State=StateDisabled } else { a.State=StateHealthy; a.LastError=""; a.CooldownUntil=time.Time{} }
+		a.Credential.Disabled = disabled
+		if disabled {
+			for session, accountID := range r.sessions {
+				if accountID == id { delete(r.sessions, session) }
+			}
+		}
 	}
 }
 
