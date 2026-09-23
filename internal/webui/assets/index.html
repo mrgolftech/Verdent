@@ -42,7 +42,6 @@
         <button class="nav-btn" data-page="overview" type="button"><svg class="ui-icon"><use href="#i-grid"/></svg><span>概览</span></button>
         <button class="nav-btn" data-page="accounts" type="button"><svg class="ui-icon"><use href="#i-users"/></svg><span>账号</span></button>
         <button class="nav-btn" data-page="models" type="button"><svg class="ui-icon"><use href="#i-boxes"/></svg><span>模型</span></button>
-        <button class="nav-btn" data-page="keys" type="button"><svg class="ui-icon"><use href="#i-key"/></svg><span>密钥</span></button>
         <button class="nav-btn" data-page="api" type="button"><svg class="ui-icon"><use href="#i-terminal"/></svg><span>API</span></button>
       </nav>
       <div class="sidebar-footer">
@@ -106,21 +105,25 @@
         <section id="page-api" class="page" hidden>
           <div class="page-heading"><div><h1>API 接入</h1><p>OpenAI Chat Completions、Responses 和动态 Models 已启用。</p></div></div>
           <div class="two-col">
-            <article class="panel"><div class="panel-head"><div><h2>客户端配置</h2><p>将下游工具指向同一个兼容入口。</p></div></div><div class="panel-body form-stack"><label><span>Base URL</span><div class="copy-row"><code id="base-url"></code><button class="btn" type="button" data-copy="base-url"><svg class="ui-icon"><use href="#i-copy"/></svg><span>复制</span></button></div></label><label><span>鉴权</span><code>Authorization: Bearer &lt;VERDENT_API_KEY&gt;</code></label></div></article>
+            <article class="panel">
+              <div class="panel-head"><div><h2>客户端配置</h2><p>将下游工具指向同一个兼容入口，并管理调用密钥。</p></div></div>
+              <div class="panel-body form-stack">
+                <label><span>Base URL</span><div class="copy-row"><code id="base-url"></code><button class="btn" type="button" data-copy="base-url"><svg class="ui-icon"><use href="#i-copy"/></svg><span>复制</span></button></div></label>
+                <div class="api-key-section">
+                  <div class="api-key-head">
+                    <div><strong>API 密钥</strong><p id="keys-meta">加载中…</p></div>
+                    <div class="api-key-actions">
+                      <button id="key-add" class="btn primary" type="button"><svg class="ui-icon"><use href="#i-plus"/></svg><span>创建密钥</span></button>
+                      <button id="keys-refresh" class="icon-btn page-icon-action" type="button" title="刷新密钥" aria-label="刷新密钥"><svg class="ui-icon"><use href="#i-refresh"/></svg></button>
+                    </div>
+                  </div>
+                  <div class="api-key-note"><svg class="ui-icon notice-icon"><use href="#i-info"/></svg><span>完整密钥只在管理控制台显示，请妥善保管；删除后使用该密钥的客户端会立即失效。</span></div>
+                  <div id="keys-table"></div>
+                </div>
+              </div>
+            </article>
             <article class="panel"><div class="panel-head"><div><h2>兼容端点</h2><p>当前已实现的 API Surface。</p></div></div><div class="endpoint-list"><div><code>POST /v1/chat/completions</code><span class="badge good">Ready</span></div><div><code>POST /v1/responses</code><span class="badge good">Ready</span></div><div><code>GET /v1/models</code><span class="badge good">Ready</span></div></div></article>
           </div>
-        </section>
-
-        <section id="page-keys" class="page" hidden>
-          <div class="page-heading action-heading">
-            <div><h1>密钥</h1><p>下游客户端用这些密钥调用 /v1 接口。</p></div>
-            <div class="actions">
-              <button id="key-add" class="btn primary" type="button"><svg class="ui-icon"><use href="#i-plus"/></svg><span>创建密钥</span></button>
-              <button id="keys-refresh" class="icon-btn page-icon-action" type="button" title="刷新密钥" aria-label="刷新密钥"><svg class="ui-icon"><use href="#i-refresh"/></svg></button>
-            </div>
-          </div>
-          <div class="notice"><svg class="ui-icon notice-icon"><use href="#i-info"/></svg><div><strong>密钥即凭据</strong><p>完整密钥只在管理控制台显示，请妥善保管、勿公开。删除后使用该密钥的客户端会立即失效。</p></div></div>
-          <article class="panel"><div class="panel-head"><div><h2>API 密钥</h2><p id="keys-meta">加载中…</p></div></div><div id="keys-table"></div></article>
         </section>
       </main>
     </div>
@@ -133,7 +136,6 @@
         <button class="nav-btn" data-page="overview" type="button"><svg class="ui-icon"><use href="#i-grid"/></svg><span>概览</span></button>
         <button class="nav-btn" data-page="accounts" type="button"><svg class="ui-icon"><use href="#i-users"/></svg><span>账号</span></button>
         <button class="nav-btn" data-page="models" type="button"><svg class="ui-icon"><use href="#i-boxes"/></svg><span>模型</span></button>
-        <button class="nav-btn" data-page="keys" type="button"><svg class="ui-icon"><use href="#i-key"/></svg><span>密钥</span></button>
         <button class="nav-btn" data-page="api" type="button"><svg class="ui-icon"><use href="#i-terminal"/></svg><span>API</span></button>
       </nav>
     </div>
