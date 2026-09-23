@@ -12,18 +12,6 @@ func TestAdminAppUsesCollectionSelectorForForEachBindings(t *testing.T) {
 	}
 	js := string(data)
 
-	bad := []string{
-		`$(".page").forEach`,
-		`$("[data-page]").forEach`,
-		`$("[data-close]").forEach`,
-		`$("[data-copy]").forEach`,
-	}
-	for _, pattern := range bad {
-		if strings.Contains(js, pattern) {
-			t.Fatalf("single-element selector used with forEach: %s", pattern)
-		}
-	}
-
 	required := []string{
 		`$$(".page").forEach`,
 		`$$("[data-page]").forEach`,
