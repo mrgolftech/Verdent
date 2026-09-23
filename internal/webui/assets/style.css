@@ -74,3 +74,13 @@ main{max-width:1440px;margin:0 auto;padding:30px 32px 48px}.page-heading{margin-
 .menu-action .ui-icon{width:15px;height:15px;color:var(--muted)}
 .menu-action.danger-text{color:var(--bad)}
 .menu-action.danger-text .ui-icon{color:var(--bad)}
+
+.api-key-section{margin-top:2px;padding-top:16px;border-top:1px solid var(--line-soft)}
+.api-key-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.api-key-head strong{font-size:12px}
+.api-key-head p{margin:4px 0 0;color:var(--muted);font-size:10px}
+.api-key-actions{display:flex;align-items:center;gap:7px}
+.api-key-note{display:flex;align-items:flex-start;gap:8px;margin:12px 0;padding:10px 11px;border:1px solid color-mix(in srgb,var(--blue) 18%,var(--line));border-radius:8px;background:color-mix(in srgb,var(--blue) 5%,var(--panel));color:var(--muted);font-size:10px;line-height:1.5}
+.api-key-section .table-wrap{border:1px solid var(--line-soft);border-radius:8px}
+.api-key-section .empty{padding:18px;border:1px dashed var(--line);border-radius:8px;background:var(--panel-2)}
+@media(max-width:700px){.api-key-head{display:block}.api-key-actions{margin-top:10px}.api-key-actions .btn{flex:1}}
