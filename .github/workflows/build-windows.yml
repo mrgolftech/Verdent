@@ -1,4 +1,4 @@
-name: build-windows
+name: build-release
 
 on:
   workflow_dispatch:
@@ -12,7 +12,7 @@ permissions:
   contents: write
 
 jobs:
-  package-windows:
+  package:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -33,28 +33,60 @@ jobs:
           GOARCH: amd64
           CGO_ENABLED: "0"
         run: |
-          mkdir -p dist/package
-          go build -trimpath -ldflags="-s -w" -o dist/package/verdent.exe ./cmd/verdent
-          cp .env.example dist/package/.env.example
-          cp README.md dist/package/README.md
+          mkdir -p dist/windows
+          go build -trimpath -ldflags="-s -w" -o dist/windows/verdent.exe ./cmd/verdent
+          cp .env.example dist/windows/.env.example
+          cp README.md dist/windows/README.md
 
-      - name: Create checksums and zip package
+      - name: Build Ubuntu/Linux x64 executable
+        env:
+          GOOS: linux
+          GOARCH: amd64
+          CGO_ENABLED: "0"
         run: |
-          cd dist/package
+          mkdir -p dist/linux
+          go build -trimpath -ldflags="-s -w" -o dist/linux/verdent ./cmd/verdent
+          chmod +x dist/linux/verdent
+          cp .env.example dist/linux/.env.example
+          cp README.md dist/linux/README.md
+
+      - name: Create Windows package and checksums
+        run: |
+          cd dist/windows
           sha256sum verdent.exe > verdent.exe.sha256
           zip -9 ../verdent-windows-amd64.zip verdent.exe verdent.exe.sha256 .env.example README.md
           cd ..
           sha256sum verdent-windows-amd64.zip > verdent-windows-amd64.zip.sha256
 
-      - name: Upload workflow artifact
+      - name: Create Ubuntu/Linux package and checksums
+        run: |
+          cd dist/linux
+          sha256sum verdent > verdent.sha256
+          tar -czf ../verdent-linux-amd64.tar.gz verdent verdent.sha256 .env.example README.md
+          cd ..
+          sha256sum verdent-linux-amd64.tar.gz > verdent-linux-amd64.tar.gz.sha256
+
+      - name: Upload Windows workflow artifact
         uses: actions/upload-artifact@v4
         with:
           name: verdent-windows-amd64
           path: |
-            dist/package/verdent.exe
-            dist/package/verdent.exe.sha256
+            dist/windows/verdent.exe
+            dist/windows/verdent.exe.sha256
             dist/verdent-windows-amd64.zip
             dist/verdent-windows-amd64.zip.sha256
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload Ubuntu/Linux workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: verdent-linux-amd64
+          path: |
+            dist/linux/verdent
+            dist/linux/verdent.sha256
+            dist/verdent-linux-amd64.tar.gz
+            dist/verdent-linux-amd64.tar.gz.sha256
           if-no-files-found: error
           retention-days: 30
 
@@ -88,6 +120,10 @@ jobs:
           gh release upload "$RELEASE_TAG" \
             dist/verdent-windows-amd64.zip \
             dist/verdent-windows-amd64.zip.sha256 \
-            dist/package/verdent.exe \
-            dist/package/verdent.exe.sha256 \
+            dist/windows/verdent.exe \
+            dist/windows/verdent.exe.sha256 \
+            dist/verdent-linux-amd64.tar.gz \
+            dist/verdent-linux-amd64.tar.gz.sha256 \
+            dist/linux/verdent \
+            dist/linux/verdent.sha256 \
             --clobber
