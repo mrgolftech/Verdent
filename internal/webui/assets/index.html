@@ -124,6 +124,27 @@
             </article>
             <article class="panel"><div class="panel-head"><div><h2>兼容端点</h2><p>当前已实现的 API Surface。</p></div></div><div class="endpoint-list"><div><code>POST /v1/chat/completions</code><span class="badge good">Ready</span></div><div><code>POST /v1/responses</code><span class="badge good">Ready</span></div><div><code>GET /v1/models</code><span class="badge good">Ready</span></div></div></article>
           </div>
+          <article class="panel api-test-panel">
+            <div class="panel-head"><div><h2>API 测试</h2><p>由服务端发起真实并发流式请求，实时观察延迟、吞吐和 Token 使用。</p></div></div>
+            <div class="panel-body">
+              <form id="api-test-form" class="api-test-form">
+                <div class="api-test-controls">
+                  <label><span>模型</span><select id="api-test-model" required><option value="">正在读取模型…</option></select></label>
+                  <label><span>上下文窗口（tokens）</span><input id="api-test-context" type="number" min="0" max="2000000" step="1" value="0" list="api-test-context-options"><datalist id="api-test-context-options"></datalist><small id="api-test-context-hint">0 表示使用模型默认上下文窗口。</small></label>
+                  <label><span>并发数</span><input id="api-test-concurrency" type="number" min="1" max="64" step="1" value="1"><small>单批次同时发起的请求数。</small></label>
+                  <label><span>最大输出 tokens</span><input id="api-test-output-tokens" type="number" min="1" max="64000" step="1" value="512"><small id="api-test-output-hint">用于控制单请求最大生成长度。</small></label>
+                </div>
+                <label class="api-test-prompt"><span>测试提示词</span><textarea id="api-test-prompt" rows="4" required>请用中文连续输出一段结构清晰的说明文字，用于测试流式生成性能；不要调用工具，不要提前结束。</textarea></label>
+                <div class="api-test-actions">
+                  <button id="api-test-start" class="btn primary" type="submit"><span>开始测试</span></button>
+                  <button id="api-test-stop" class="btn" type="button" disabled><span>停止</span></button>
+                  <span id="api-test-note">TTFT 从请求发起到第一个有效生成增量；运行中的 tokens/s 为实时值，拿到最终 usage 后回填精确平均值。</span>
+                </div>
+              </form>
+              <div id="api-test-summary" class="benchmark-summary" hidden></div>
+              <div id="api-test-results" class="benchmark-results"><div class="empty">配置参数后点击“开始测试”。</div></div>
+            </div>
+          </article>
         </section>
       </main>
     </div>
