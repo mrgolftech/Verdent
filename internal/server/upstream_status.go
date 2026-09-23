@@ -12,6 +12,7 @@ import (
 func (s *Server) recordUpstreamFailure(accountID string, status int, raw, retryAfterHeader string) string {
 	if protocol.IsAccountSuspended(raw) {
 		s.Accounts.MarkSuspended(accountID, raw)
+		_ = s.persistAccounts()
 		return "verdent_account_suspended"
 	}
 	if protocol.IsRateLimit(status, raw) {
