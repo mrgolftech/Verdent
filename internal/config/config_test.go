@@ -34,7 +34,7 @@ func TestLoadRejectsMissingProtocolConfig(t *testing.T) {
 func TestLoadCapturedDesktopTemplateAndProtocolDefaults(t *testing.T) {
 	dir:=t.TempDir()
 	templatePath:=filepath.Join(dir,"template.json")
-	template:=`{"system":"captured-ciphertext","model_catalog_version":"model-catalog-live","native_api":false}`
+	template:=`{"channel":"deck","system":"captured-ciphertext","thinking":{"type":"enabled","budget_tokens":4000},"agent_name":"VerdentDeck","encrypt":true,"is_eco":false,"is_auto":false,"is_free":false,"is_limit_free":false,"native_api":false,"effort":"high","max_tokens":64000,"temperature":1,"model_catalog_version":"model-catalog-live","custom_trace_tags_tmp":[],"env":{"platform":"win32","os_version":"Windows_NT 10.0.26200","shell":"gitbash","today_date":"2026-09-22"}}`
 	if err:=os.WriteFile(templatePath,[]byte(template),0600);err!=nil{t.Fatal(err)}
 	env:=map[string]string{
 		"VERDENT_APP_VERSION":"2.15.1",
@@ -46,7 +46,12 @@ func TestLoadCapturedDesktopTemplateAndProtocolDefaults(t *testing.T) {
 	if r.Protocol.SystemCiphertext!="captured-ciphertext" || r.Protocol.ModelCatalogVersion!="model-catalog-live" {
 		t.Fatalf("template not loaded: %#v",r.Protocol)
 	}
-	if r.Protocol.NativeAPI { t.Fatal("native_api should match current Desktop capture") }
+	if r.Protocol.Channel!="deck" || r.Protocol.AgentName!="VerdentDeck" { t.Fatalf("identity fields not loaded: %#v",r.Protocol) }
+	if r.Protocol.Thinking==nil || r.Protocol.Thinking.Type!="enabled" || r.Protocol.Thinking.BudgetTokens!=4000 { t.Fatalf("thinking=%#v",r.Protocol.Thinking) }
+	if r.Protocol.Effort!="high" || r.Protocol.MaxTokens!=64000 || r.Protocol.Temperature==nil || *r.Protocol.Temperature!=1 { t.Fatalf("request defaults not loaded: %#v",r.Protocol) }
+	if r.Protocol.Environment.Platform!="win32" || r.Protocol.Environment.OSVersion!="Windows_NT 10.0.26200" || r.Protocol.Environment.Shell!="gitbash" { t.Fatalf("env=%#v",r.Protocol.Environment) }
+	if r.Protocol.TraceTags==nil || len(r.Protocol.TraceTags)!=0 { t.Fatalf("trace tags=%#v",r.Protocol.TraceTags) }
+	if r.Protocol.NativeAPI || r.Protocol.IsEco || r.Protocol.IsAuto || r.Protocol.IsFree || r.Protocol.IsLimitFree { t.Fatal("2.15.1 boolean defaults should remain false") }
 	if r.Protocol.MinRequestInterval!=1200*time.Millisecond { t.Fatalf("interval=%v",r.Protocol.MinRequestInterval) }
 	if len(r.Protocol.RetryDelays)!=3 || r.Protocol.RetryDelays[0]!=10*time.Second || r.Protocol.RetryDelays[2]!=45*time.Second {
 		t.Fatalf("retry delays=%v",r.Protocol.RetryDelays)
@@ -63,4 +68,17 @@ func TestNativeAPIEnvOverridesTemplate(t *testing.T) {
 	}
 	r,err:=load(func(k string)string{return env[k]},os.ReadFile);if err!=nil{t.Fatal(err)}
 	if !r.Protocol.NativeAPI { t.Fatal("explicit VERDENT_NATIVE_API should win") }
+}
+
+
+func TestDesktopHeaderIdentityOverrides(t *testing.T) {
+	env:=map[string]string{
+		"VERDENT_APP_VERSION":"2.15.1","VERDENT_PROXY_BETA":"hybrid-stream@20250919","VERDENT_PROXY_SIGN":"protocol-sign-for-test-only",
+		"VERDENT_OS_TYPE":"windows","VERDENT_OS_NAME":"Windows_NT 10.0.26200","VERDENT_CPU_ARCH":"x64",
+		"VERDENT_DEVICE_TYPE":"pc","VERDENT_DEVICE_MODEL":"AMD Ryzen Test",
+	}
+	r,err:=load(func(k string)string{return env[k]},os.ReadFile);if err!=nil{t.Fatal(err)}
+	if r.Protocol.OSType!="windows" || r.Protocol.OSName!="Windows_NT 10.0.26200" || r.Protocol.CPUArch!="x64" || r.Protocol.DeviceType!="pc" || r.Protocol.DeviceModel!="AMD Ryzen Test" {
+		t.Fatalf("desktop header identity not configurable: %#v",r.Protocol)
+	}
 }
