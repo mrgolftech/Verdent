@@ -163,19 +163,9 @@ func (s *Server) handleAdminAccountTest(w http.ResponseWriter, r *http.Request) 
 		writeJSON(w, http.StatusBadGateway, map[string]any{"error": err.Error()})
 		return
 	}
-	client, err := s.NewClient(*selected, s.ProtocolConfig, 30*time.Second)
-	if err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
-		return
-	}
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 	defer cancel()
-	models, err := client.DiscoverModels(ctx, selected.Credential.Token)
-	if err != nil {
-		writeJSON(w, http.StatusBadGateway, map[string]any{"error": err.Error()})
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "models": len(models)})
+	writeJSON(w, http.StatusOK, s.diagnoseAccount(ctx, selected))
 }
 
 func (s *Server) handleAdminModels(w http.ResponseWriter, r *http.Request) {
@@ -328,7 +318,10 @@ func (s *Server) upsertAuthToken(authToken verdentauth.TokenResponse, label, dev
 		DeviceID: strings.TrimSpace(deviceID), TeamID: teamID, ProxyURL: strings.TrimSpace(proxyURL),
 	}
 	s.Accounts.Add(credential)
-	if oldState != account.StateDisabled {
+	// Re-authentication refreshes credentials but must not silently clear an
+	// upstream account suspension. Disabled and suspended accounts remain parked
+	// until the operator explicitly re-enables them.
+	if exists && oldState == account.StateCoolingDown {
 		s.Accounts.SetDisabled(id, false)
 	}
 	if err := s.persistAccounts(); err != nil {
