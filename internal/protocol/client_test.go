@@ -94,3 +94,31 @@ func TestClientDoesNotRetryNonRetryableServerError(t *testing.T) {
 	body,_:=io.ReadAll(resp.Body)
 	if string(body)!=`{"error":"permanent"}` { t.Fatalf("body=%q",body) }
 }
+
+
+func TestClientDoesNotRetryAccountSuspension(t *testing.T) {
+	var calls atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter,r *http.Request){
+		calls.Add(1)
+		w.Header().Set("Content-Type","application/json")
+		w.WriteHeader(http.StatusTooManyRequests)
+		_,_=io.WriteString(w,`{"error_code":80006,"msg":"Due to a violation of our policies, your free mode access has been suspended"}`)
+	}))
+	defer server.Close()
+
+	cfg:=Config{
+		Endpoint:server.URL,AppVersion:"2.15.1",BetaHeader:"beta",
+		Sign:"protocol-sign-for-test-only",DeviceID:"dev",
+		RetryDelays:[]time.Duration{time.Millisecond,time.Millisecond,time.Millisecond},
+	}
+	client,err:=NewClientWithGate(cfg,server.Client(),NewRequestGate(0))
+	if err!=nil{t.Fatal(err)}
+	resp,err:=client.Do(context.Background(),"token",canonical.Request{
+		Model:"model-a",Messages:[]canonical.Message{{Role:canonical.RoleUser,Content:[]canonical.ContentBlock{{Type:canonical.BlockText,Text:"hi"}}}},
+	},EnvelopeOptions{IDs:RequestIDs{SessionID:"s",ConvID:"c",ReactID:"r"}})
+	if err!=nil{t.Fatal(err)}
+	defer resp.Body.Close()
+	if calls.Load()!=1 { t.Fatalf("suspension must not retry, calls=%d",calls.Load()) }
+	body,_:=io.ReadAll(resp.Body)
+	if !IsAccountSuspended(string(body)) { t.Fatalf("expected suspension body, got %q",body) }
+}
