@@ -24,3 +24,40 @@ func TestAdminAppUsesCollectionSelectorForForEachBindings(t *testing.T) {
 		}
 	}
 }
+
+
+func TestAPIPageOwnsKeyManagement(t *testing.T) {
+	indexData, err := embedded.ReadFile("assets/index.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	index := string(indexData)
+
+	for _, forbidden := range []string{
+		`data-page="keys"`,
+		`id="page-keys"`,
+		`Authorization: Bearer &lt;VERDENT_API_KEY&gt;`,
+	} {
+		if strings.Contains(index, forbidden) {
+			t.Fatalf("obsolete standalone key/auth UI still present: %s", forbidden)
+		}
+	}
+
+	basePos := strings.Index(index, `id="base-url"`)
+	keysPos := strings.Index(index, `id="keys-table"`)
+	if basePos < 0 || keysPos < 0 || keysPos <= basePos {
+		t.Fatalf("API key management must appear below Base URL: base=%d keys=%d", basePos, keysPos)
+	}
+
+	appData, err := embedded.ReadFile("assets/app.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	app := string(appData)
+	if !strings.Contains(app, `async function loadAPI(){$("#base-url").textContent=location.origin+"/v1";await loadKeys();}`) {
+		t.Fatal("API page must load managed API keys")
+	}
+	if strings.Contains(app, `if(page==="keys")return loadKeys();`) {
+		t.Fatal("standalone keys page routing should be removed")
+	}
+}
