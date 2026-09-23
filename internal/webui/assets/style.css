@@ -96,3 +96,27 @@ main{max-width:1440px;margin:0 auto;padding:30px 32px 48px}.page-heading{margin-
 .account-switch input:disabled+.switch-track{opacity:.55;cursor:wait}
 .account-switch b{min-width:24px;font-size:10px;font-weight:650;color:var(--muted)}
 .account-switch input:checked~b{color:var(--good)}
+
+
+.api-test-panel{margin-top:18px}
+.api-test-form{display:grid;gap:14px}
+.api-test-controls{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.api-test-controls label,.api-test-prompt{display:grid;gap:6px}
+.api-test-controls label>span,.api-test-prompt>span{font-size:11px;font-weight:650}
+.api-test-controls small{min-height:15px;color:var(--muted);font-size:9px;line-height:1.45}
+.api-test-controls input,.api-test-controls select,.api-test-prompt textarea{width:100%;border:1px solid var(--line);border-radius:7px;background:var(--panel);color:var(--text);padding:9px 10px;outline:none}
+.api-test-controls input:focus,.api-test-controls select:focus,.api-test-prompt textarea:focus{border-color:var(--blue);box-shadow:0 0 0 3px color-mix(in srgb,var(--blue) 12%,transparent)}
+.api-test-prompt textarea{resize:vertical;min-height:90px}
+.api-test-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.api-test-actions>span{flex:1;min-width:260px;color:var(--muted);font-size:10px;line-height:1.5}
+.benchmark-summary{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px;margin-top:18px}
+.benchmark-kpi{min-width:0;padding:10px 11px;border:1px solid var(--line-soft);border-radius:8px;background:var(--panel-2)}
+.benchmark-kpi span{display:block;color:var(--muted);font-size:9px;white-space:nowrap}
+.benchmark-kpi strong{display:block;margin-top:4px;font-size:13px;overflow-wrap:anywhere}
+.benchmark-results{margin-top:12px}
+.benchmark-table{min-width:1080px}
+.benchmark-table td{vertical-align:top}
+.benchmark-preview{max-width:320px;max-height:72px;overflow:auto;white-space:pre-wrap;word-break:break-word;color:var(--muted);font-size:10px;line-height:1.45}
+.benchmark-error{max-width:260px;color:var(--bad);white-space:normal}
+@media(max-width:1100px){.api-test-controls{grid-template-columns:repeat(2,minmax(0,1fr))}.benchmark-summary{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media(max-width:700px){.api-test-controls{grid-template-columns:1fr}.benchmark-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.api-test-actions>span{min-width:100%}}
