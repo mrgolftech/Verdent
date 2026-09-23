@@ -11,7 +11,8 @@ func TestBuildHeaders(t *testing.T) {
 	if err != nil { t.Fatal(err) }
 	checks := map[string]string{
 		"Authorization":"Bearer secret-token", "Cookie":"token=secret-token", "verdent-proxy-beta":"beta-test",
-		"X-Version-Code":"2.test", "X-Device-ID":"device-1", "X-Team-ID":"team-1", "Device-Model":"cpu-x",
+		"X-Version-Code":"2.test", "X-Device-ID":"device-1", "X-Team-ID":"team-1",
+		"X-Device-Type":"pc", "X-OS-Type":"linux", "Device-Model":"cpu-x",
 		"OS":"Linux test", "CPU-Arch":"amd64", "User-Agent":"Verdent/test", "agent_type":"ts_agent",
 	}
 	for k, want := range checks {
