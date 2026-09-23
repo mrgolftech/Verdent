@@ -1,12 +1,16 @@
 package protocol
 
-import "strings"
+import (
+	"regexp"
+	"strings"
+)
+
+var accountSuspensionCode = regexp.MustCompile(`(?i)"error_code"\s*:\s*80006\b`)
 
 func IsAccountSuspended(raw string) bool {
 	if raw == "" { return false }
 	lower := strings.ToLower(raw)
-	return strings.Contains(lower, `"error_code":80006`) ||
-		strings.Contains(lower, `"error_code": 80006`) ||
+	return accountSuspensionCode.MatchString(raw) ||
 		strings.Contains(lower, "free mode access has been suspended") ||
 		strings.Contains(lower, "violation of our policies")
 }

@@ -60,16 +60,16 @@ func (s *Server) handleResponses(w http.ResponseWriter, r *http.Request) {
 	id := randomID("resp_")
 	created := time.Now().Unix()
 	if in.Stream {
-		s.streamResponses(w, resp, id, in.Model, created, conversion.CustomTools)
+		s.streamResponses(w, resp, account.Credential.ID, id, in.Model, created, conversion.CustomTools)
 		return
 	}
-	s.collectResponses(w, resp, id, in.Model, created, conversion.CustomTools)
+	s.collectResponses(w, resp, account.Credential.ID, id, in.Model, created, conversion.CustomTools)
 }
 
 func (s *Server) collectResponses(
 	w http.ResponseWriter,
 	resp *http.Response,
-	id, model string,
+	accountID, id, model string,
 	created int64,
 	customTools map[string]bool,
 ) {
@@ -96,7 +96,8 @@ func (s *Server) collectResponses(
 		}
 		for _, event := range events {
 			if event.Type == protocol.EventError {
-				writeAPIError(w, http.StatusBadGateway, "upstream_error", event.Err)
+				code := s.recordUpstreamFailure(accountID, 0, event.Err, "")
+				writeAPIError(w, http.StatusBadGateway, code, event.Err)
 				return
 			}
 			assembler.Consume(event)
@@ -109,7 +110,7 @@ func (s *Server) collectResponses(
 func (s *Server) streamResponses(
 	w http.ResponseWriter,
 	resp *http.Response,
-	id, model string,
+	accountID, id, model string,
 	created int64,
 	customTools map[string]bool,
 ) {
@@ -147,6 +148,11 @@ func (s *Server) streamResponses(
 			return
 		}
 		for _, event := range events {
+			if event.Type == protocol.EventError {
+				code := s.recordUpstreamFailure(accountID, 0, event.Err, "")
+				writeResponsesStreamError(w, flusher, code, event.Err)
+				return
+			}
 			out := encoder.Encode(event)
 			for _, apiEvent := range out {
 				if err := writeResponsesEvent(w, apiEvent); err != nil {

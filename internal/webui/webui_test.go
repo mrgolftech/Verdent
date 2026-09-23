@@ -61,3 +61,24 @@ func TestAPIPageOwnsKeyManagement(t *testing.T) {
 		t.Fatal("standalone keys page routing should be removed")
 	}
 }
+
+
+func TestAccountTableUsesPersistentEnableSwitch(t *testing.T) {
+	appData, err := embedded.ReadFile("assets/app.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	app := string(appData)
+	for _, required := range []string{
+		`data-enabled="`,
+		`setAccountEnabled(`,
+		`a.enabled!==false`,
+	} {
+		if !strings.Contains(app, required) {
+			t.Fatalf("account enable switch behavior missing: %s", required)
+		}
+	}
+	if strings.Contains(app, `data-toggle="`) {
+		t.Fatal("legacy account enable/disable action button should be removed")
+	}
+}

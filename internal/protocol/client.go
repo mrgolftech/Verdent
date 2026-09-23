@@ -102,6 +102,11 @@ func retryDecision(resp *http.Response, fallback time.Duration) (bool, time.Dura
 	resp.Body = io.NopCloser(bytes.NewReader(body))
 
 	raw := strings.TrimSpace(string(body))
+	// Account-level free-mode suspension (80006) is not a transient rate limit.
+	// Never retry it, even if the upstream happens to return it with HTTP 429.
+	if IsAccountSuspended(raw) {
+		return false, 0, nil
+	}
 	retry := status == http.StatusTooManyRequests
 	if status >= 500 {
 		retry = strings.Contains(raw, "20004") || strings.Contains(raw, "need_retry")

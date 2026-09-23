@@ -32,3 +32,49 @@ func TestRouterSuspendedAndDisabled(t *testing.T) {
 	r.SetDisabled("b",true)
 	if got:=r.Select("s2",""); got!=nil { t.Fatalf("expected no eligible account, got %#v",got) }
 }
+
+
+func TestManualDisableIsIndependentFromRuntimeState(t *testing.T) {
+	r := NewRouter([]Credential{{ID:"a",Token:"ta",DeviceID:"da"}})
+	r.MarkSuspended("a","80006")
+	r.SetDisabled("a",true)
+
+	snapshot:=r.Snapshot()
+	if len(snapshot)!=1 || !snapshot[0].Credential.Disabled {
+		t.Fatalf("manual disabled state not set: %#v",snapshot)
+	}
+	if snapshot[0].State!=StateSuspended {
+		t.Fatalf("manual disable must preserve runtime suspension, got %s",snapshot[0].State)
+	}
+	if got:=r.Select("s","a"); got!=nil {
+		t.Fatalf("manually disabled account must not be selected: %#v",got)
+	}
+
+	r.SetDisabled("a",false)
+	snapshot=r.Snapshot()
+	if snapshot[0].Credential.Disabled {
+		t.Fatal("manual enable did not clear disabled flag")
+	}
+	if snapshot[0].State!=StateSuspended {
+		t.Fatalf("manual enable must not erase suspension, got %s",snapshot[0].State)
+	}
+	if got:=r.Select("s","a"); got!=nil {
+		t.Fatalf("suspended account must remain ineligible after manual enable: %#v",got)
+	}
+}
+
+
+func TestRouterRestoresPersistedSuspension(t *testing.T) {
+	r:=NewRouter([]Credential{{ID:"a",Token:"ta",DeviceID:"da",Suspended:true,SuspensionError:"80006 suspended"}})
+	snapshot:=r.Snapshot()
+	if len(snapshot)!=1 || snapshot[0].State!=StateSuspended || snapshot[0].LastError!="80006 suspended" {
+		t.Fatalf("persisted suspension not restored: %#v",snapshot)
+	}
+	if got:=r.Select("session",""); got!=nil {
+		t.Fatalf("persisted suspended account must not route: %#v",got)
+	}
+	r.MarkHealthy("a")
+	if got:=r.Select("session",""); got==nil || got.Credential.ID!="a" {
+		t.Fatalf("operator recovery should make account eligible: %#v",got)
+	}
+}

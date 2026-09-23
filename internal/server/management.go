@@ -19,6 +19,8 @@ type accountView struct {
 	ID            string    `json:"id"`
 	Label         string    `json:"label"`
 	State         string    `json:"state"`
+	RuntimeState  string    `json:"runtime_state"`
+	Enabled       bool      `json:"enabled"`
 	DeviceID      string    `json:"device_id"`
 	TeamID        string    `json:"team_id"`
 	ProxyURL      string    `json:"proxy_url"`
@@ -32,6 +34,10 @@ func (s *Server) handleAdminOverview(w http.ResponseWriter, r *http.Request) {
 	snapshot := s.Accounts.Snapshot()
 	counts := map[string]int{"healthy": 0, "cooling_down": 0, "suspended": 0, "disabled": 0}
 	for _, item := range snapshot {
+		if item.Credential.Disabled {
+			counts["disabled"]++
+			continue
+		}
 		counts[string(item.State)]++
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
@@ -163,19 +169,9 @@ func (s *Server) handleAdminAccountTest(w http.ResponseWriter, r *http.Request) 
 		writeJSON(w, http.StatusBadGateway, map[string]any{"error": err.Error()})
 		return
 	}
-	client, err := s.NewClient(*selected, s.ProtocolConfig, 30*time.Second)
-	if err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
-		return
-	}
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 	defer cancel()
-	models, err := client.DiscoverModels(ctx, selected.Credential.Token)
-	if err != nil {
-		writeJSON(w, http.StatusBadGateway, map[string]any{"error": err.Error()})
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "models": len(models)})
+	writeJSON(w, http.StatusOK, s.diagnoseAccount(ctx, selected))
 }
 
 func (s *Server) handleAdminModels(w http.ResponseWriter, r *http.Request) {
@@ -283,15 +279,6 @@ func (s *Server) upsertAuthToken(authToken verdentauth.TokenResponse, label, dev
 	}
 	id := account.StableAccountIDForIdentity(identity, teamID)
 	existing, exists := s.Accounts.Credential(id)
-	var oldState account.State
-	if exists {
-		for _, current := range s.Accounts.Snapshot() {
-			if current.Credential.ID == id {
-				oldState = current.State
-				break
-			}
-		}
-	}
 	if strings.TrimSpace(label) == "" {
 		if exists && existing.Label != "" {
 			label = existing.Label
@@ -327,10 +314,12 @@ func (s *Server) upsertAuthToken(authToken verdentauth.TokenResponse, label, dev
 		RefreshToken: refreshToken, TokenExpiresAt: tokenExpiresAt,
 		DeviceID: strings.TrimSpace(deviceID), TeamID: teamID, ProxyURL: strings.TrimSpace(proxyURL),
 	}
-	s.Accounts.Add(credential)
-	if oldState != account.StateDisabled {
-		s.Accounts.SetDisabled(id, false)
+	if exists {
+		credential.Disabled = existing.Disabled
+		credential.Suspended = existing.Suspended
+		credential.SuspensionError = existing.SuspensionError
 	}
+	s.Accounts.Add(credential)
 	if err := s.persistAccounts(); err != nil {
 		return account.Account{}, err
 	}
@@ -412,10 +401,16 @@ func toAccountView(item account.Account) accountView {
 	if item.Credential.TokenExpiresAt > 0 {
 		expires = item.Credential.TokenExpiresAt
 	}
+	effectiveState := string(item.State)
+	if item.Credential.Disabled {
+		effectiveState = string(account.StateDisabled)
+	}
 	return accountView{
 		ID: item.Credential.ID,
 		Label: item.Credential.Label,
-		State: string(item.State),
+		State: effectiveState,
+		RuntimeState: string(item.State),
+		Enabled: !item.Credential.Disabled,
 		DeviceID: item.Credential.DeviceID,
 		TeamID: item.Credential.TeamID,
 		ProxyURL: maskProxyURL(item.Credential.ProxyURL),
