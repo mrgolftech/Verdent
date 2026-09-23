@@ -17,6 +17,9 @@ import (
 	"github.com/mrgolftech/Verdent/internal/webui"
 )
 
+// Version is the gateway build version. Release builds set it with -ldflags -X.
+var Version = "dev"
+
 type Server struct {
 	Accounts       *account.Router
 	AccountStore   account.FileStore
@@ -37,7 +40,7 @@ type Server struct {
 func New(accounts *account.Router,cfg protocol.Config) *Server {
 	return &Server{
 		Accounts:accounts,ProtocolConfig:cfg,RequestTimeout:5*time.Minute,
-		AdminUser:"admin",Version:"dev",NewClient:account.NewProtocolClient,
+		AdminUser:"admin",Version:Version,NewClient:account.NewProtocolClient,
 		adminSessions:newAdminSessions(),
 	}
 }
