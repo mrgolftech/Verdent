@@ -106,11 +106,22 @@ func BuildEnvelope(req canonical.Request, cfg Config, codec *Codec, opt Envelope
 	if err != nil { return Envelope{}, fmt.Errorf("encode messages: %w", err) }
 
 	maxTokens := req.MaxTokens
+	if maxTokens <= 0 { maxTokens = cfg.MaxTokens }
 	if maxTokens <= 0 { maxTokens = 64000 }
 	temperature := 1.0
+	if cfg.Temperature != nil { temperature = *cfg.Temperature }
 	if req.Temperature != nil { temperature = *req.Temperature }
 
-	trace := opt.Trace
+	trace := TraceMetadata{}
+	if cfg.TraceMetadata != nil { trace = *cfg.TraceMetadata }
+	if opt.Trace.CWD != "" { trace.CWD = opt.Trace.CWD }
+	if opt.Trace.ConversationScene != "" { trace.ConversationScene = opt.Trace.ConversationScene }
+	if opt.Trace.ConversationPromptSource != "" { trace.ConversationPromptSource = opt.Trace.ConversationPromptSource }
+	if opt.Trace.ActionType != "" { trace.ActionType = opt.Trace.ActionType }
+	if opt.Trace.DeviceType != "" { trace.DeviceType = opt.Trace.DeviceType }
+	if opt.Trace.OSType != "" { trace.OSType = opt.Trace.OSType }
+	if opt.Trace.UserQuery != "" { trace.UserQuery = opt.Trace.UserQuery }
+	if opt.Trace.ImageRouteSelectedIsBYOK { trace.ImageRouteSelectedIsBYOK = true }
 	trace.SelectedModelID = req.Model
 	trace.EffectiveModelID = req.Model
 	if trace.ConversationScene == "" { trace.ConversationScene = "worker" }
@@ -130,12 +141,14 @@ func BuildEnvelope(req canonical.Request, cfg Config, codec *Codec, opt Envelope
 	envMeta := opt.Environment
 	if envMeta.Platform == "" && envMeta.OSVersion == "" && envMeta.Shell == "" { envMeta = cfg.Environment }
 	if envMeta.TodayDate == "" { envMeta.TodayDate = now.Format("2006-01-02") }
+	traceTags := []string{}
+	if cfg.TraceTags != nil { traceTags = append([]string(nil), cfg.TraceTags...) }
 	env := Envelope{
 		Channel: cfg.Channel, Model: req.Model, SessionID: opt.IDs.SessionID, ConvID: opt.IDs.ConvID, ReactID: opt.IDs.ReactID,
 		ReactType: cfg.ReactType, Stream: true, MaxTokens: maxTokens, Temperature: temperature,
 		System: encSystem, Thinking: cfg.Thinking, Messages: encMessages, AgentName: cfg.AgentName, Env: envMeta, Encrypt: true,
-		TraceTags: []string{}, TraceMetadata: trace, ModelCatalogVersion: modelCatalogVersion, Effort: effort,
-		ContextWindowTokens: req.ContextWindowTokens, IsEco: false, IsAuto: false, IsFree: false, IsLimitFree: false,
+		TraceTags: traceTags, TraceMetadata: trace, ModelCatalogVersion: modelCatalogVersion, Effort: effort,
+		ContextWindowTokens: req.ContextWindowTokens, IsEco: cfg.IsEco, IsAuto: cfg.IsAuto, IsFree: cfg.IsFree, IsLimitFree: cfg.IsLimitFree,
 		NativeAPI: cfg.NativeAPI,
 	}
 
