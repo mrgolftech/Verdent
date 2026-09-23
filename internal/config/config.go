@@ -131,7 +131,7 @@ func load(getenv func(string)string, readFile func(string)([]byte,error)) (Runti
 		if template.IsAuto!=nil { r.Protocol.IsAuto=*template.IsAuto }
 		if template.IsFree!=nil { r.Protocol.IsFree=*template.IsFree }
 		if template.IsLimitFree!=nil { r.Protocol.IsLimitFree=*template.IsLimitFree }
-		if template.TraceTags!=nil { r.Protocol.TraceTags=append([]string(nil),template.TraceTags...) }
+		if template.TraceTags!=nil { r.Protocol.TraceTags=append([]string{},template.TraceTags...) }
 		r.Protocol.TraceMetadata=template.TraceMetadata
 		r.Protocol.Environment=protocol.Environment{Platform:strings.TrimSpace(template.Env.Platform),OSVersion:strings.TrimSpace(template.Env.OSVersion),Shell:strings.TrimSpace(template.Env.Shell)}
 		if template.NativeAPI!=nil { r.Protocol.NativeAPI=*template.NativeAPI }
