@@ -23,6 +23,7 @@ type Runtime struct {
 	PublicBaseURL  string
 	AuthBaseURL    string
 	LoginBaseURL   string
+	Version        string
 	RequestTimeout time.Duration
 	Protocol       protocol.Config
 	Accounts       []account.Credential
@@ -37,6 +38,9 @@ type storedCredential struct {
 	DeviceID       string `json:"device_id"`
 	TeamID         string `json:"team_id,omitempty"`
 	ProxyURL       string `json:"proxy_url,omitempty"`
+	Disabled       bool   `json:"disabled,omitempty"`
+	Suspended      bool   `json:"suspended,omitempty"`
+	SuspensionError string `json:"suspension_error,omitempty"`
 }
 
 type accountFile struct { Accounts []storedCredential `json:"accounts"` }
@@ -45,6 +49,7 @@ func (s storedCredential) runtime() account.Credential {
 	return account.Credential{
 		ID:s.ID,Label:s.Label,Token:s.Token,RefreshToken:s.RefreshToken,TokenExpiresAt:s.TokenExpiresAt,
 		DeviceID:s.DeviceID,TeamID:s.TeamID,ProxyURL:s.ProxyURL,
+		Disabled:s.Disabled,Suspended:s.Suspended,SuspensionError:s.SuspensionError,
 	}
 }
 
@@ -61,6 +66,7 @@ func load(getenv func(string)string, readFile func(string)([]byte,error)) (Runti
 		PublicBaseURL: strings.TrimSpace(getenv("VERDENT_PUBLIC_BASE_URL")),
 		AuthBaseURL: strings.TrimSpace(getenv("VERDENT_AUTH_BASE_URL")),
 		LoginBaseURL: strings.TrimSpace(getenv("VERDENT_LOGIN_BASE_URL")),
+		Version: strings.TrimSpace(getenv("VERDENT_VERSION")),
 		Protocol: protocol.Config{
 			Endpoint:strings.TrimSpace(getenv("VERDENT_ENDPOINT")),
 			CatalogEndpoint:strings.TrimSpace(getenv("VERDENT_CATALOG_ENDPOINT")),
