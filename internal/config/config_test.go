@@ -18,11 +18,11 @@ func TestLoadSingleAccountFromEnv(t *testing.T) {
 
 func TestLoadAccountsFile(t *testing.T) {
 	dir:=t.TempDir();path:=filepath.Join(dir,"accounts.json")
-	data:=`{"accounts":[{"id":"a","token":"ta","device_id":"da"},{"id":"b","token":"tb","device_id":"db","proxy_url":"https://127.0.0.1:8443"}]}`
+	data:=`{"accounts":[{"id":"a","token":"ta","device_id":"da","disabled":true},{"id":"b","token":"tb","device_id":"db","proxy_url":"https://127.0.0.1:8443","suspended":true,"suspension_error":"80006 suspended"}]}`
 	if err:=os.WriteFile(path,[]byte(data),0600);err!=nil{t.Fatal(err)}
 	env:=map[string]string{"VERDENT_APP_VERSION":"2.test","VERDENT_PROXY_BETA":"beta","VERDENT_PROXY_SIGN":"protocol-sign-for-test-only","VERDENT_ACCOUNTS_FILE":path}
 	r,err:=load(func(k string)string{return env[k]},os.ReadFile);if err!=nil{t.Fatal(err)}
-	if len(r.Accounts)!=2 || r.Accounts[0].TeamID!="0" || r.Accounts[1].ProxyURL=="" { t.Fatalf("bad accounts: %#v",r.Accounts) }
+	if len(r.Accounts)!=2 || r.Accounts[0].TeamID!="0" || !r.Accounts[0].Disabled || r.Accounts[1].ProxyURL=="" || !r.Accounts[1].Suspended || r.Accounts[1].SuspensionError!="80006 suspended" { t.Fatalf("bad accounts: %#v",r.Accounts) }
 }
 
 func TestLoadRejectsMissingProtocolConfig(t *testing.T) {
@@ -82,4 +82,14 @@ func TestDesktopHeaderIdentityOverrides(t *testing.T) {
 	if r.Protocol.OSType!="windows" || r.Protocol.OSName!="Windows_NT 10.0.26200" || r.Protocol.CPUArch!="x64" || r.Protocol.DeviceType!="pc" || r.Protocol.DeviceModel!="AMD Ryzen Test" {
 		t.Fatalf("desktop header identity not configurable: %#v",r.Protocol)
 	}
+}
+
+
+func TestLoadVersionEnvOverride(t *testing.T) {
+	env:=map[string]string{
+		"VERDENT_APP_VERSION":"2.test","VERDENT_PROXY_BETA":"beta","VERDENT_PROXY_SIGN":"protocol-sign-for-test-only",
+		"VERDENT_VERSION":" v0.1.0-alpha.5 ",
+	}
+	r,err:=load(func(k string)string{return env[k]},os.ReadFile);if err!=nil{t.Fatal(err)}
+	if r.Version!="v0.1.0-alpha.5" { t.Fatalf("version=%q",r.Version) }
 }
