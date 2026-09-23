@@ -12,6 +12,16 @@ func TestAdminAppUsesCollectionSelectorForForEachBindings(t *testing.T) {
 	}
 	js := string(data)
 
+	// $() is querySelector and returns one Element. Any "$(...).forEach(...)"
+	// binding is therefore a runtime bug. Keep this generic so newly added
+	// account/table actions cannot reintroduce the same regression elsewhere.
+	for lineNo, line := range strings.Split(js, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "$(") && strings.Contains(trimmed, ").forEach(") {
+			t.Fatalf("single-element selector used with forEach at app.js:%d: %s", lineNo+1, trimmed)
+		}
+	}
+
 	required := []string{
 		`$$(".page").forEach`,
 		`$$("[data-page]").forEach`,
