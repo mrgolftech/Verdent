@@ -130,25 +130,31 @@ http://127.0.0.1:5084/v1
 ```
 
 
-## Windows executable build
+## Release binaries
 
-The repository includes a dedicated GitHub Actions workflow:
+The repository includes a dedicated GitHub Actions release workflow:
 
 `.github/workflows/build-windows.yml`
 
-It builds a standalone Windows x64 executable with:
+It currently builds standalone binaries for:
 
 ```text
-GOOS=windows
-GOARCH=amd64
-CGO_ENABLED=0
+Windows x64  -> GOOS=windows GOARCH=amd64 CGO_ENABLED=0
+Ubuntu/Linux x64 -> GOOS=linux GOARCH=amd64 CGO_ENABLED=0
 ```
 
-### Manual build artifact
+### Manual build artifacts
 
-Open **Actions → build-windows → Run workflow**.
+Open **Actions → build-release → Run workflow**.
 
-The workflow produces the `verdent-windows-amd64` artifact containing:
+The workflow produces two artifacts:
+
+```text
+verdent-windows-amd64
+verdent-linux-amd64
+```
+
+Windows assets:
 
 ```text
 verdent.exe
@@ -157,20 +163,29 @@ verdent-windows-amd64.zip
 verdent-windows-amd64.zip.sha256
 ```
 
-The ZIP also includes `.env.example` and `README.md`.
+Ubuntu/Linux assets:
+
+```text
+verdent
+verdent.sha256
+verdent-linux-amd64.tar.gz
+verdent-linux-amd64.tar.gz.sha256
+```
+
+Both packages also include `.env.example` and `README.md`.
 
 ### Release build
 
 Push a version tag such as:
 
 ```bash
-git tag v0.1.0-alpha.1
-git push origin v0.1.0-alpha.1
+git tag v0.1.0-alpha.2
+git push origin v0.1.0-alpha.2
 ```
 
-The same workflow runs tests, builds the Windows x64 package, creates the SHA256 checksums, and uploads the EXE and ZIP assets to the matching GitHub Release.
+The workflow runs tests, builds both platforms, creates SHA256 checksums, and uploads the binaries and archives to the matching GitHub Release.
 
-Normal branch CI also cross-builds `verdent.exe` after `go test ./...` and `go vet ./...`, so Windows build regressions are caught before release.
+Normal branch CI also cross-builds both Windows x64 and Ubuntu/Linux x64 binaries after `go test ./...` and `go vet ./...`, so platform build regressions are caught before release.
 
 
 ## Current Desktop-alignment behavior
