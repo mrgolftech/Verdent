@@ -50,6 +50,7 @@ func TestLoadCapturedDesktopTemplateAndProtocolDefaults(t *testing.T) {
 	if r.Protocol.Thinking==nil || r.Protocol.Thinking.Type!="enabled" || r.Protocol.Thinking.BudgetTokens!=4000 { t.Fatalf("thinking=%#v",r.Protocol.Thinking) }
 	if r.Protocol.Effort!="high" || r.Protocol.MaxTokens!=64000 || r.Protocol.Temperature==nil || *r.Protocol.Temperature!=1 { t.Fatalf("request defaults not loaded: %#v",r.Protocol) }
 	if r.Protocol.Environment.Platform!="win32" || r.Protocol.Environment.OSVersion!="Windows_NT 10.0.26200" || r.Protocol.Environment.Shell!="gitbash" { t.Fatalf("env=%#v",r.Protocol.Environment) }
+	if r.Protocol.OSType!="windows" { t.Fatalf("X-OS-Type should follow captured win32 platform, got %q",r.Protocol.OSType) }
 	if r.Protocol.TraceTags==nil || len(r.Protocol.TraceTags)!=0 { t.Fatalf("trace tags=%#v",r.Protocol.TraceTags) }
 	if r.Protocol.NativeAPI || r.Protocol.IsEco || r.Protocol.IsAuto || r.Protocol.IsFree || r.Protocol.IsLimitFree { t.Fatal("2.15.1 boolean defaults should remain false") }
 	if r.Protocol.MinRequestInterval!=1200*time.Millisecond { t.Fatalf("interval=%v",r.Protocol.MinRequestInterval) }
