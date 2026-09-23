@@ -134,6 +134,16 @@ func load(getenv func(string)string, readFile func(string)([]byte,error)) (Runti
 		if template.TraceTags!=nil { r.Protocol.TraceTags=append([]string{},template.TraceTags...) }
 		r.Protocol.TraceMetadata=template.TraceMetadata
 		r.Protocol.Environment=protocol.Environment{Platform:strings.TrimSpace(template.Env.Platform),OSVersion:strings.TrimSpace(template.Env.OSVersion),Shell:strings.TrimSpace(template.Env.Shell)}
+		if r.Protocol.OSType=="" {
+			switch strings.ToLower(strings.TrimSpace(template.Env.Platform)) {
+			case "win32","windows":
+				r.Protocol.OSType="windows"
+			case "darwin","macos":
+				r.Protocol.OSType="macos"
+			case "linux":
+				r.Protocol.OSType="linux"
+			}
+		}
 		if template.NativeAPI!=nil { r.Protocol.NativeAPI=*template.NativeAPI }
 	}
 	if raw:=strings.TrimSpace(getenv("VERDENT_NATIVE_API"));raw!="" {
