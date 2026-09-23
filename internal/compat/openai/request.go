@@ -14,7 +14,7 @@ func ToCanonical(in ChatRequest) (canonical.Request, error) {
 	if strings.TrimSpace(in.Model) == "" { return canonical.Request{}, errors.New("model is required") }
 	if len(in.Messages) == 0 { return canonical.Request{}, errors.New("messages are required") }
 
-	out := canonical.Request{Model: in.Model, Temperature: in.Temperature, Effort: in.ReasoningEffort}
+	out := canonical.Request{Model: in.Model, Temperature: in.Temperature, Effort: in.ReasoningEffort, ContextWindowTokens: in.ContextWindowTokens}
 	if in.MaxCompletionTokens > 0 { out.MaxTokens = in.MaxCompletionTokens } else { out.MaxTokens = in.MaxTokens }
 
 	for _, tool := range in.Tools {
