@@ -27,6 +27,19 @@ jobs:
           go test ./...
           go vet ./...
 
+      - name: Resolve build version
+        id: build_version
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            version="$GITHUB_REF_NAME"
+          elif [[ "$GITHUB_REF" == refs/heads/release/v* ]]; then
+            version="${GITHUB_REF_NAME#release/}"
+          else
+            version="${GITHUB_REF_NAME//\//-}+${GITHUB_SHA::7}"
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
       - name: Build Windows x64 executable
         env:
           GOOS: windows
@@ -34,7 +47,7 @@ jobs:
           CGO_ENABLED: "0"
         run: |
           mkdir -p dist/windows
-          go build -trimpath -ldflags="-s -w" -o dist/windows/verdent.exe ./cmd/verdent
+          go build -trimpath -ldflags="-s -w -X github.com/mrgolftech/Verdent/internal/server.Version=${{ steps.build_version.outputs.version }}" -o dist/windows/verdent.exe ./cmd/verdent
           cp .env.example dist/windows/.env.example
           cp README.md dist/windows/README.md
 
@@ -45,7 +58,7 @@ jobs:
           CGO_ENABLED: "0"
         run: |
           mkdir -p dist/linux
-          go build -trimpath -ldflags="-s -w" -o dist/linux/verdent ./cmd/verdent
+          go build -trimpath -ldflags="-s -w -X github.com/mrgolftech/Verdent/internal/server.Version=${{ steps.build_version.outputs.version }}" -o dist/linux/verdent ./cmd/verdent
           chmod +x dist/linux/verdent
           cp .env.example dist/linux/.env.example
           cp README.md dist/linux/README.md
