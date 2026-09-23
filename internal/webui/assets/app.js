@@ -1,6 +1,6 @@
 const $=(s,r=document)=>r.querySelector(s);
 const $$=(s,r=document)=>[...r.querySelectorAll(s)];
-const PAGES={overview:"概览",accounts:"账号",models:"模型",keys:"密钥",api:"API"};
+const PAGES={overview:"概览",accounts:"账号",models:"模型",api:"API"};
 let currentPage="overview";
 let accountCache=[];
 let keysCache=[];
@@ -49,7 +49,6 @@ async function loadPage(page){
   if(page==="overview")return loadOverview();
   if(page==="accounts")return loadAccounts();
   if(page==="models")return loadModels();
-  if(page==="keys")return loadKeys();
   if(page==="api")return loadAPI();
 }
 
@@ -175,13 +174,13 @@ async function loadModels(){
     }).join("")+"</tbody></table></div>":'<div class="empty">没有可显示的模型。</div>';
   }catch(e){$("#models-meta").textContent="读取失败";$("#models-table").innerHTML='<div class="empty">'+esc(e.message)+'</div>';}
 }
-async function loadAPI(){$("#base-url").textContent=location.origin+"/v1";}
+async function loadAPI(){$("#base-url").textContent=location.origin+"/v1";await loadKeys();}
 
 async function loadKeys(){
   const d=await api("/keys");
   keysCache=d.keys||[];
   $("#keys-meta").textContent=keysCache.length?keysCache.length+" 个密钥 · "+(d.store_file||""):"还没有密钥。";
-  if(!keysCache.length){$("#keys-table").innerHTML='<div class="empty">还没有密钥。点击右上角「创建密钥」。</div>';return;}
+  if(!keysCache.length){$("#keys-table").innerHTML='<div class="empty">还没有密钥。点击「创建密钥」即可添加。</div>';return;}
   $("#keys-table").innerHTML='<div class="table-wrap"><table class="data-table responsive-table"><thead><tr><th>名称</th><th>密钥</th><th>创建时间</th><th>操作</th></tr></thead><tbody>'+keysCache.map(k=>{
     return '<tr>'+
       '<td data-label="名称"><div class="cell-main">'+esc(k.name||"—")+'</div>'+(k.builtin?'<div class="cell-sub">内置 · 环境变量</div>':'')+'</td>'+
