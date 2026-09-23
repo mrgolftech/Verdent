@@ -71,6 +71,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/accounts/{id}/test",s.admin(s.handleAdminAccountTest))
 	mux.HandleFunc("DELETE /api/accounts/{id}",s.admin(s.handleAdminAccountDelete))
 	mux.HandleFunc("GET /api/models",s.admin(s.handleAdminModels))
+	mux.HandleFunc("POST /api/benchmark/chat",s.admin(s.handleAdminBenchmarkChat))
 
 	mux.HandleFunc("GET /api/keys",s.admin(s.handleKeysList))
 	mux.HandleFunc("POST /api/keys",s.admin(s.handleKeysCreate))
