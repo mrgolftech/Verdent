@@ -35,7 +35,9 @@ jobs:
           GOOS: windows
           GOARCH: amd64
           CGO_ENABLED: "0"
-        run: go build -trimpath -ldflags="-s -w" -o verdent.exe ./cmd/verdent
+        run: |
+          version="${GITHUB_REF_NAME//\//-}+${GITHUB_SHA::7}"
+          go build -trimpath -ldflags="-s -w -X github.com/mrgolftech/Verdent/internal/server.Version=$version" -o verdent.exe ./cmd/verdent
       - name: Verify executable
         run: test -s verdent.exe
 
@@ -54,6 +56,8 @@ jobs:
           GOOS: linux
           GOARCH: amd64
           CGO_ENABLED: "0"
-        run: go build -trimpath -ldflags="-s -w" -o verdent ./cmd/verdent
+        run: |
+          version="${GITHUB_REF_NAME//\//-}+${GITHUB_SHA::7}"
+          go build -trimpath -ldflags="-s -w -X github.com/mrgolftech/Verdent/internal/server.Version=$version" -o verdent ./cmd/verdent
       - name: Verify executable
         run: test -x verdent
