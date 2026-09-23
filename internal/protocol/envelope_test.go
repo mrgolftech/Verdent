@@ -108,3 +108,47 @@ func TestCapturedDesktopSystemFoldsClientSystemIntoUserMessage(t *testing.T) {
 	cc, _ := lastBlock["cache_control"].(map[string]any)
 	if cc["type"] != "ephemeral" { t.Fatalf("missing final cache_control: %#v",lastBlock) }
 }
+
+
+func Test2151TemplateFieldParity(t *testing.T) {
+	codec, err := newCodec("protocol-sign-for-test-only", bytes.NewReader(bytes.Repeat([]byte{0x55}, nonceSize*2)))
+	if err != nil { t.Fatal(err) }
+	temp:=1.0
+	cfg:=Config{
+		AppVersion:"2.15.1",BetaHeader:"hybrid-stream@20250919",Sign:"protocol-sign-for-test-only",DeviceID:"dev",
+		Channel:"deck",AgentName:"VerdentDeck",SystemCiphertext:"captured-system",Thinking:&Thinking{Type:"enabled",BudgetTokens:4000},
+		Effort:"high",MaxTokens:64000,Temperature:&temp,ModelCatalogVersion:"model-catalog-1790068751126",
+		Environment:Environment{Platform:"win32",OSVersion:"Windows_NT 10.0.26200",Shell:"gitbash"},
+		TraceTags:[]string{},NativeAPI:false,IsEco:false,IsAuto:false,IsFree:false,IsLimitFree:false,
+	}
+	req:=canonical.Request{
+		Model:"deepseek-v4.1-flash-free",UserQuery:"hello",
+		Messages:[]canonical.Message{{Role:canonical.RoleUser,Content:[]canonical.ContentBlock{{Type:canonical.BlockText,Text:"hello"}}}},
+	}
+	now:=time.Date(2026,9,23,8,0,0,0,time.FixedZone("CST",8*3600))
+	env,err:=BuildEnvelope(req,cfg,codec,EnvelopeOptions{IDs:RequestIDs{SessionID:"session_a",ConvID:"conv_b",ReactID:"model_agent_c"},Now:now})
+	if err!=nil{t.Fatal(err)}
+	raw,err:=json.Marshal(env);if err!=nil{t.Fatal(err)}
+	var body map[string]any
+	if err:=json.Unmarshal(raw,&body);err!=nil{t.Fatal(err)}
+	required:=[]string{
+		"channel","model","session_id","conv_id","react_id","react_type","stream",
+		"max_tokens","temperature","system","thinking","messages","agent_name","env","encrypt",
+		"custom_trace_tags_tmp","custom_trace_metadata_tmp","model_catalog_version","effort",
+		"is_eco","is_auto","is_free","is_limit_free","native_api",
+	}
+	for _,key:=range required {
+		if _,ok:=body[key];!ok { t.Fatalf("missing 2.15.1/OpenFork request field %q: %s",key,string(raw)) }
+	}
+	if body["channel"]!="deck" || body["agent_name"]!="VerdentDeck" || body["max_tokens"]!=float64(64000) || body["temperature"]!=float64(1) {
+		t.Fatalf("captured defaults not preserved: %s",raw)
+	}
+	if body["system"]!="captured-system" { t.Fatalf("system fingerprint changed: %q",body["system"]) }
+	if _,ok:=body["tools"];ok { t.Fatal("tools should be omitted when client supplied none") }
+	if _,ok:=body["tool_choice"];ok { t.Fatal("tool_choice should be omitted when client supplied no tools") }
+	if _,ok:=body["context_window_tokens"];ok { t.Fatal("context_window_tokens should be omitted unless supplied") }
+	envObj:=body["env"].(map[string]any)
+	if envObj["platform"]!="win32" || envObj["today_date"]!="2026-09-23" { t.Fatalf("env=%#v",envObj) }
+	thinking:=body["thinking"].(map[string]any)
+	if thinking["type"]!="enabled" || thinking["budget_tokens"]!=float64(4000) { t.Fatalf("thinking=%#v",thinking) }
+}
