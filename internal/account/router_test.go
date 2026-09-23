@@ -62,3 +62,19 @@ func TestManualDisableIsIndependentFromRuntimeState(t *testing.T) {
 		t.Fatalf("suspended account must remain ineligible after manual enable: %#v",got)
 	}
 }
+
+
+func TestRouterRestoresPersistedSuspension(t *testing.T) {
+	r:=NewRouter([]Credential{{ID:"a",Token:"ta",DeviceID:"da",Suspended:true,SuspensionError:"80006 suspended"}})
+	snapshot:=r.Snapshot()
+	if len(snapshot)!=1 || snapshot[0].State!=StateSuspended || snapshot[0].LastError!="80006 suspended" {
+		t.Fatalf("persisted suspension not restored: %#v",snapshot)
+	}
+	if got:=r.Select("session",""); got!=nil {
+		t.Fatalf("persisted suspended account must not route: %#v",got)
+	}
+	r.MarkHealthy("a")
+	if got:=r.Select("session",""); got==nil || got.Credential.ID!="a" {
+		t.Fatalf("operator recovery should make account eligible: %#v",got)
+	}
+}
