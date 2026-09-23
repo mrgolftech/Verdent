@@ -25,6 +25,7 @@ func main() {
 	api.AdminUser=cfg.AdminUser
 	api.AdminPassword=cfg.AdminPassword
 	api.PublicBaseURL=cfg.PublicBaseURL
+	if cfg.Version!="" { api.Version=cfg.Version }
 	api.AccountStore=account.FileStore{Path:cfg.AccountsFile}
 	keyManager,err:=apikey.NewManager(apikey.FileStore{Path:cfg.KeysFile});if err!=nil{log.Fatalf("keystore error: %v",err)}
 	api.Keys=keyManager
