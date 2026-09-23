@@ -34,6 +34,14 @@ type Config struct {
 	Effort             string
 	Thinking           *Thinking
 	Environment        Environment
+	MaxTokens          int
+	Temperature        *float64
+	IsEco              bool
+	IsAuto             bool
+	IsFree             bool
+	IsLimitFree        bool
+	TraceTags          []string
+	TraceMetadata      *TraceMetadata
 	NativeAPI          bool
 	SystemCiphertext    string
 	ModelCatalogVersion string
