@@ -130,6 +130,49 @@ http://127.0.0.1:5084/v1
 ```
 
 
+## Windows executable build
+
+The repository includes a dedicated GitHub Actions workflow:
+
+`.github/workflows/build-windows.yml`
+
+It builds a standalone Windows x64 executable with:
+
+```text
+GOOS=windows
+GOARCH=amd64
+CGO_ENABLED=0
+```
+
+### Manual build artifact
+
+Open **Actions → build-windows → Run workflow**.
+
+The workflow produces the `verdent-windows-amd64` artifact containing:
+
+```text
+verdent.exe
+verdent.exe.sha256
+verdent-windows-amd64.zip
+verdent-windows-amd64.zip.sha256
+```
+
+The ZIP also includes `.env.example` and `README.md`.
+
+### Release build
+
+Push a version tag such as:
+
+```bash
+git tag v0.1.0-alpha.1
+git push origin v0.1.0-alpha.1
+```
+
+The same workflow runs tests, builds the Windows x64 package, creates the SHA256 checksums, and uploads the EXE and ZIP assets to the matching GitHub Release.
+
+Normal branch CI also cross-builds `verdent.exe` after `go test ./...` and `go vet ./...`, so Windows build regressions are caught before release.
+
+
 ## Current Desktop-alignment behavior
 
 The current protocol path incorporates the September 22 findings from an independent Verdent2API implementation and keeps the evidence-backed pieces isolated behind configuration:
