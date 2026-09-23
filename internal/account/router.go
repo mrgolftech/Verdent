@@ -24,6 +24,8 @@ type Credential struct {
 	TeamID         string `json:"team_id,omitempty"`
 	ProxyURL       string `json:"proxy_url,omitempty"`
 	Disabled       bool   `json:"disabled,omitempty"`
+	Suspended      bool   `json:"-"`
+	SuspensionError string `json:"-"`
 }
 
 type Account struct {
@@ -55,6 +57,10 @@ func (r *Router) addLocked(c Credential) {
 		return
 	}
 	a := &Account{Credential:c,State:StateHealthy}
+	if c.Suspended {
+		a.State = StateSuspended
+		a.LastError = c.SuspensionError
+	}
 	r.accounts = append(r.accounts,a)
 	r.byID[c.ID] = a
 }
@@ -171,7 +177,24 @@ func (r *Router) MarkRateLimited(id string, until time.Time, detail string) {
 
 func (r *Router) MarkSuspended(id, detail string) {
 	r.mu.Lock(); defer r.mu.Unlock()
-	if a := r.byID[id]; a != nil { a.State=StateSuspended; a.CooldownUntil=time.Time{}; a.LastError=detail }
+	if a := r.byID[id]; a != nil {
+		a.State=StateSuspended
+		a.CooldownUntil=time.Time{}
+		a.LastError=detail
+		a.Credential.Suspended=true
+		a.Credential.SuspensionError=detail
+	}
+}
+
+func (r *Router) MarkHealthy(id string) {
+	r.mu.Lock(); defer r.mu.Unlock()
+	if a := r.byID[id]; a != nil {
+		a.State=StateHealthy
+		a.CooldownUntil=time.Time{}
+		a.LastError=""
+		a.Credential.Suspended=false
+		a.Credential.SuspensionError=""
+	}
 }
 
 func (r *Router) SetDisabled(id string, disabled bool) {
