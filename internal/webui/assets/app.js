@@ -93,7 +93,7 @@ async function loadAccounts(){
       '<td data-label="操作"><div class="table-actions">'+
       '<button class="table-action" data-test="'+esc(a.id)+'">'+icon("check","mini-icon")+'<span>测试</span></button>'+
       '<button class="table-action" data-proxy="'+esc(a.id)+'">'+icon("link","mini-icon")+'<span>代理</span></button>'+
-      '<button class="table-action" data-toggle="'+esc(a.id)+'">'+icon("power","mini-icon")+'<span>'+(a.state==="disabled"?"启用":"停用")+'</span></button>'+
+      '<button class="table-action" data-toggle="'+esc(a.id)+'">'+icon("power","mini-icon")+'<span>'+(a.state==="disabled"?"启用":a.state==="suspended"?"重新启用":"停用")+'</span></button>'+
       '<button class="table-action danger" data-delete="'+esc(a.id)+'">'+icon("trash","mini-icon")+'<span>删除</span></button>'+
       '</div></td></tr>';
   }).join("")+"</tbody></table></div>";
@@ -103,16 +103,37 @@ async function loadAccounts(){
   $$("[data-delete]").forEach(b=>b.onclick=()=>deleteAccount(b.dataset.delete));
 }
 
+function diagnosticSummary(r){
+  const d=r.diagnostics||{},parts=[];
+  const mark=s=>s==="ok"?"✓":s==="skipped"?"—":s==="suspended"?"✕":s==="cooling_down"?"!":"✕";
+  if(d.credential)parts.push("凭据 "+mark(d.credential.status));
+  if(d.catalog)parts.push("模型目录 "+mark(d.catalog.status));
+  if(d.free_inference)parts.push("Free inference "+mark(d.free_inference.status));
+  return parts.join(" · ");
+}
 async function testAccount(id,button){
   button.disabled=true;
-  try{const r=await api("/accounts/"+encodeURIComponent(id)+"/test",{method:"POST"});toast("连接成功，发现 "+r.models+" 个模型","good");}
+  try{
+    const r=await api("/accounts/"+encodeURIComponent(id)+"/test",{method:"POST"});
+    const free=r.diagnostics?.free_inference;
+    const catalog=r.diagnostics?.catalog;
+    if(r.state==="suspended"||free?.status==="suspended"||catalog?.status==="suspended"){
+      toast(diagnosticSummary(r)+" · 80006 已风控","bad");
+    }else if(r.ok){
+      toast(diagnosticSummary(r)+" · "+r.models+" 个模型","good");
+    }else{
+      toast(diagnosticSummary(r)+" · "+(free?.detail||catalog?.detail||"诊断失败"),"bad");
+    }
+    await loadAccounts();await loadOverview();
+  }
   catch(e){toast(e.message,"bad");}
   finally{button.disabled=false;}
 }
 async function toggleAccount(id){
   const a=accountCache.find(x=>x.id===id);if(!a)return;
-  await api("/accounts/"+encodeURIComponent(id)+"/state",{method:"POST",body:{disabled:a.state!=="disabled"}});
-  toast(a.state==="disabled"?"账号已启用":"账号已停用","good");await loadAccounts();await loadOverview();
+  const enabling=a.state==="disabled"||a.state==="suspended";
+  await api("/accounts/"+encodeURIComponent(id)+"/state",{method:"POST",body:{disabled:!enabling}});
+  toast(enabling?"账号已重新启用":"账号已停用","good");await loadAccounts();await loadOverview();
 }
 async function deleteAccount(id){
   const a=accountCache.find(x=>x.id===id);if(!confirm("确认删除 "+(a?.label||id)+"？\nToken 将从持久化账号文件中移除。"))return;
