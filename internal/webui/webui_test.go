@@ -64,8 +64,8 @@ func TestAPIPageOwnsKeyManagement(t *testing.T) {
 		t.Fatal(err)
 	}
 	app := string(appData)
-	if !strings.Contains(app, `async function loadAPI(){$("#base-url").textContent=location.origin+"/v1";await loadKeys();}`) {
-		t.Fatal("API page must load managed API keys")
+	if !strings.Contains(app, `async function loadAPI(){$("#base-url").textContent=location.origin+"/v1";await Promise.all([loadKeys(),loadAPITestModels()]);}`) {
+		t.Fatal("API page must load managed API keys and benchmark models")
 	}
 	if strings.Contains(app, `if(page==="keys")return loadKeys();`) {
 		t.Fatal("standalone keys page routing should be removed")
@@ -90,5 +90,46 @@ func TestAccountTableUsesPersistentEnableSwitch(t *testing.T) {
 	}
 	if strings.Contains(app, `data-toggle="`) {
 		t.Fatal("legacy account enable/disable action button should be removed")
+	}
+}
+
+
+func TestAPIBenchmarkControlsAndMetricsPresent(t *testing.T) {
+	indexData, err := embedded.ReadFile("assets/index.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	index := string(indexData)
+	for _, required := range []string{
+		`id="api-test-form"`,
+		`id="api-test-model"`,
+		`id="api-test-context"`,
+		`id="api-test-concurrency"`,
+		`id="api-test-output-tokens"`,
+		`id="api-test-results"`,
+	} {
+		if !strings.Contains(index, required) {
+			t.Fatalf("API benchmark control missing: %s", required)
+		}
+	}
+
+	appData, err := embedded.ReadFile("assets/app.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	app := string(appData)
+	for _, required := range []string{
+		`"/api/benchmark/chat"`,
+		`context_window_tokens`,
+		`throughput_tps`,
+		`input_tokens`,
+		`output_tokens`,
+		`total_tokens`,
+		`ttft_ms`,
+		`duration_ms`,
+	} {
+		if !strings.Contains(app, required) {
+			t.Fatalf("API benchmark metric missing: %s", required)
+		}
 	}
 }
