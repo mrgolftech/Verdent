@@ -18,6 +18,7 @@ async function api(path,opts={}){
   return data;
 }
 const esc=(v)=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const icon=(name,cls="ui-icon")=>'<svg class="'+cls+'" aria-hidden="true"><use href="#i-'+name+'"></use></svg>';
 function toast(msg,tone="info"){const root=$("#toast-root"),el=document.createElement("div");el.className="toast "+tone;el.textContent=msg;root.append(el);setTimeout(()=>el.remove(),3000);}
 function fmtTime(sec){if(!sec)return "—";const d=new Date(sec*1000);return Number.isNaN(d.getTime())?"—":d.toLocaleString("zh-CN",{hour12:false});}
 function badge(text,tone=""){return '<span class="badge '+tone+'">'+esc(text)+"</span>";}
@@ -28,14 +29,19 @@ function closeDialog(id){const d=$("#"+id);if(d?.open)d.close();}
 function setTheme(theme){
   document.documentElement.dataset.theme=theme;
   localStorage.setItem("verdent-theme",theme);
-  $("#theme-toggle").textContent=theme==="dark"?"☀":"◐";
+  const action=$("#theme-action");
+  if(action){
+    const dark=theme==="dark";
+    action.innerHTML=icon(dark?"sun":"moon")+"<span>"+(dark?"切换浅色模式":"切换深色模式")+"</span>";
+  }
 }
 function initTheme(){setTheme(localStorage.getItem("verdent-theme")||"light");}
+function closeTopMore(){const d=$("#top-more");if(d?.open)d.removeAttribute("open");}
 function setPage(page){
   currentPage=page;
-  $$(".page").forEach(x=>x.hidden=x.id!=="page-"+page);
-  $$("[data-page]").forEach(x=>x.classList.toggle("active",x.dataset.page===page));
+  $(".page").forEach(x=>x.hidden=x.id!=="page-"+page);
   $("#page-title").textContent=PAGES[page]||page;
+  closeTopMore();
   const drawer=$("#mobile-drawer");if(drawer?.open)drawer.close();
   loadPage(page).catch(e=>toast(e.message,"bad"));
 }
@@ -86,10 +92,10 @@ async function loadAccounts(){
       '<td data-label="设备"><div class="mono wrap-anywhere">'+esc(a.device_id||"—")+'</div><div class="cell-sub">Team '+esc(a.team_id||"0")+'</div></td>'+
       '<td data-label="固定代理"><div class="mono wrap-anywhere">'+esc(proxy)+'</div></td>'+
       '<td data-label="操作"><div class="table-actions">'+
-      '<button class="table-action" data-test="'+esc(a.id)+'">测试</button>'+
-      '<button class="table-action" data-proxy="'+esc(a.id)+'">代理</button>'+
-      '<button class="table-action" data-toggle="'+esc(a.id)+'">'+(a.state==="disabled"?"启用":"停用")+'</button>'+
-      '<button class="table-action danger" data-delete="'+esc(a.id)+'">删除</button>'+
+      '<button class="table-action" data-test="'+esc(a.id)+'">'+icon("check","mini-icon")+'<span>测试</span></button>'+
+      '<button class="table-action" data-proxy="'+esc(a.id)+'">'+icon("link","mini-icon")+'<span>代理</span></button>'+
+      '<button class="table-action" data-toggle="'+esc(a.id)+'">'+icon("power","mini-icon")+'<span>'+(a.state==="disabled"?"启用":"停用")+'</span></button>'+
+      '<button class="table-action danger" data-delete="'+esc(a.id)+'">'+icon("trash","mini-icon")+'<span>删除</span></button>'+
       '</div></td></tr>';
   }).join("")+"</tbody></table></div>";
   $$("[data-test]").forEach(b=>b.onclick=()=>testAccount(b.dataset.test,b));
@@ -182,8 +188,8 @@ async function loadKeys(){
       '<td data-label="密钥"><div class="mono wrap-anywhere">'+esc(k.key)+'</div></td>'+
       '<td data-label="创建时间">'+esc(k.created_at?fmtTime(k.created_at):"—")+'</td>'+
       '<td data-label="操作"><div class="table-actions">'+
-      '<button class="table-action" data-copy-key="'+esc(k.id)+'">复制</button>'+
-      (k.builtin?'':'<button class="table-action danger" data-del-key="'+esc(k.id)+'">删除</button>')+
+      '<button class="table-action" data-copy-key="'+esc(k.id)+'">'+icon("copy","mini-icon")+'<span>复制</span></button>'+
+      (k.builtin?'':'<button class="table-action danger" data-del-key="'+esc(k.id)+'">'+icon("trash","mini-icon")+'<span>删除</span></button>')+
       '</div></td></tr>';
   }).join("")+"</tbody></table></div>";
   $$("[data-copy-key]").forEach(b=>b.onclick=()=>copyKey(b.dataset.copyKey));
@@ -211,17 +217,21 @@ async function deleteKey(id){
 
 async function logout(){try{await api("/auth/logout",{method:"POST"});}catch{}location.replace("/login");}
 function bind(){
-  $$("[data-page]").forEach(b=>b.onclick=()=>setPage(b.dataset.page));
-  $("#refresh").onclick=()=>loadPage(currentPage).catch(e=>toast(e.message,"bad"));
-  $("#theme-toggle").onclick=()=>setTheme(document.documentElement.dataset.theme==="dark"?"light":"dark");
+  $("[data-page]").forEach(b=>b.onclick=()=>setPage(b.dataset.page));
+  $("#overview-refresh").onclick=()=>loadOverview().catch(e=>toast(e.message,"bad"));
+  $("#accounts-refresh").onclick=()=>loadAccounts().catch(e=>toast(e.message,"bad"));
+  $("#keys-refresh").onclick=()=>loadKeys().catch(e=>toast(e.message,"bad"));
+  $("#theme-action").onclick=()=>{setTheme(document.documentElement.dataset.theme==="dark"?"light":"dark");closeTopMore();};
   $("#logout").onclick=logout;
+  $("#top-logout").onclick=logout;
   $("#mobile-menu").onclick=()=>$("#mobile-drawer").showModal();
   $("#drawer-close").onclick=()=>$("#mobile-drawer").close();
   $("#browser-login").onclick=browserLogin;$("#desktop-import").onclick=desktopImport;$("#token-add").onclick=()=>openDialog("token-modal");
   $("#token-form").onsubmit=saveToken;$("#proxy-form").onsubmit=saveProxy;$("#models-refresh").onclick=loadModels;
   $("#key-add").onclick=()=>openDialog("key-modal");$("#key-form").onsubmit=createKey;
-  $$("[data-close]").forEach(b=>b.onclick=()=>closeDialog(b.dataset.close));
-  $$("[data-copy]").forEach(b=>b.onclick=async()=>{const el=$("#"+b.dataset.copy);await navigator.clipboard.writeText(el.textContent);toast("已复制","good");});
+  $("[data-close]").forEach(b=>b.onclick=()=>closeDialog(b.dataset.close));
+  $("[data-copy]").forEach(b=>b.onclick=async()=>{const el=$("#"+b.dataset.copy);await navigator.clipboard.writeText(el.textContent);toast("已复制","good");});
+  document.addEventListener("click",e=>{const d=$("#top-more");if(d?.open&&!d.contains(e.target))closeTopMore();});
   window.addEventListener("message",e=>{if(e.origin===location.origin&&e.data?.type==="verdent-auth"&&e.data.status==="success")toast("授权回调已完成，正在保存账号…","good");});
 }
 (async function init(){
