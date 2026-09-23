@@ -4,6 +4,11 @@ const PAGES={overview:"概览",accounts:"账号",models:"模型",api:"API"};
 let currentPage="overview";
 let accountCache=[];
 let keysCache=[];
+let apiTestModels=[];
+let apiTestController=null;
+let apiTestRows=new Map();
+let apiTestBatchStarted=0;
+let apiTestRenderPending=false;
 
 async function api(path,opts={}){
   const init={credentials:"same-origin",...opts};
@@ -99,10 +104,10 @@ async function loadAccounts(){
       '<button class="table-action danger" data-delete="'+esc(a.id)+'">'+icon("trash","mini-icon")+'<span>删除</span></button>'+
       '</div></td></tr>';
   }).join("")+"</tbody></table></div>";
-  $$("[data-test]").forEach(b=>b.onclick=()=>testAccount(b.dataset.test,b));
-  $$("[data-proxy]").forEach(b=>b.onclick=()=>openProxy(b.dataset.proxy));
-  $$("[data-enabled]").forEach(b=>b.onchange=()=>setAccountEnabled(b.dataset.enabled,b.checked,b));
-  $$("[data-delete]").forEach(b=>b.onclick=()=>deleteAccount(b.dataset.delete));
+  $("[data-test]").forEach(b=>b.onclick=()=>testAccount(b.dataset.test,b));
+  $("[data-proxy]").forEach(b=>b.onclick=()=>openProxy(b.dataset.proxy));
+  $("[data-enabled]").forEach(b=>b.onchange=()=>setAccountEnabled(b.dataset.enabled,b.checked,b));
+  $("[data-delete]").forEach(b=>b.onclick=()=>deleteAccount(b.dataset.delete));
 }
 
 function diagnosticSummary(r){
@@ -204,7 +209,7 @@ async function loadModels(){
     }).join("")+"</tbody></table></div>":'<div class="empty">没有可显示的模型。</div>';
   }catch(e){$("#models-meta").textContent="读取失败";$("#models-table").innerHTML='<div class="empty">'+esc(e.message)+'</div>';}
 }
-async function loadAPI(){$("#base-url").textContent=location.origin+"/v1";await loadKeys();}
+async function loadAPI(){$("#base-url").textContent=location.origin+"/v1";await Promise.all([loadKeys(),loadAPITestModels()]);}
 
 async function loadKeys(){
   const d=await api("/keys");
@@ -244,6 +249,171 @@ async function deleteKey(id){
   catch(e){toast(e.message,"bad");}
 }
 
+
+async function loadAPITestModels(){
+  const select=$("#api-test-model");
+  try{
+    const d=await api("/models");
+    apiTestModels=d.models||[];
+    const current=select.value;
+    select.innerHTML=apiTestModels.length?apiTestModels.map(m=>'<option value="'+esc(m.id)+'">'+esc(m.name||m.id)+' · '+esc(m.id)+'</option>').join(""):'<option value="">暂无可用模型</option>';
+    if(current&&apiTestModels.some(m=>m.id===current))select.value=current;
+    syncAPITestModelLimits();
+  }catch(e){
+    apiTestModels=[];
+    select.innerHTML='<option value="">模型读取失败</option>';
+    $("#api-test-context-hint").textContent=e.message;
+  }
+}
+function syncAPITestModelLimits(){
+  const model=apiTestModels.find(m=>m.id===$("#api-test-model").value);
+  const windows=model?.context_windows||[];
+  const list=$("#api-test-context-options");
+  list.innerHTML=windows.map(w=>'<option value="'+Number(w.tokens||0)+'">'+esc(w.display||w.tokens)+'</option>').join("");
+  const maxContext=windows.reduce((n,w)=>Math.max(n,Number(w.tokens||0)),0);
+  const ctx=$("#api-test-context");
+  ctx.max=String(Math.max(2000000,maxContext||0));
+  $("#api-test-context-hint").textContent=windows.length?"可选："+windows.map(w=>w.display||w.tokens).join(" / ")+"；0 表示模型默认。":"0 表示使用模型默认上下文窗口。";
+  const out=$("#api-test-output-tokens");
+  if(model?.max_output_tokens>0){
+    out.max=String(model.max_output_tokens);
+    $("#api-test-output-hint").textContent="该模型目录标注最大输出 "+model.max_output_tokens+" tokens。";
+    if(Number(out.value)>model.max_output_tokens)out.value=String(model.max_output_tokens);
+  }else{
+    out.max="64000";
+    $("#api-test-output-hint").textContent="用于控制单请求最大生成长度。";
+  }
+}
+function fmtMS(ms){return Number.isFinite(Number(ms))&&Number(ms)>=0?Number(ms).toLocaleString("zh-CN",{maximumFractionDigits:0})+" ms":"—";}
+function fmtTPS(v,estimated=false){
+  const n=Number(v||0);if(!n)return "—";
+  return (estimated?"≈":"")+n.toFixed(n>=100?1:2)+" tok/s";
+}
+function benchmarkStatus(row){
+  if(row.status==="done")return badge("完成","good");
+  if(row.status==="error")return badge("失败","bad");
+  if(row.status==="cancelled")return badge("已取消","warn");
+  if(row.status==="running")return badge("运行中","warn");
+  return badge("等待");
+}
+function initAPITestRows(count){
+  apiTestRows=new Map();
+  for(let i=1;i<=count;i++)apiTestRows.set(i,{index:i,status:"queued",ttft_ms:null,elapsed_ms:0,duration_ms:null,throughput_tps:0,throughput_estimated:true,input_tokens:0,output_tokens:0,total_tokens:0,preview:"",error:""});
+  apiTestBatchStarted=performance.now();
+  $("#api-test-summary").hidden=false;
+  scheduleAPITestRender();
+}
+function scheduleAPITestRender(){
+  if(apiTestRenderPending)return;
+  apiTestRenderPending=true;
+  requestAnimationFrame(()=>{apiTestRenderPending=false;renderAPITest();});
+}
+function renderAPITest(){
+  const rows=[...apiTestRows.values()];
+  if(!rows.length)return;
+  const done=rows.filter(r=>r.status==="done"),failed=rows.filter(r=>r.status==="error"||r.status==="cancelled");
+  const completed=done.length+failed.length;
+  const input=done.reduce((n,r)=>n+Number(r.input_tokens||0),0);
+  const output=done.reduce((n,r)=>n+Number(r.output_tokens||0),0);
+  const total=done.reduce((n,r)=>n+Number(r.total_tokens||0),0);
+  const ttfts=done.map(r=>Number(r.ttft_ms)).filter(Number.isFinite);
+  const avgTTFT=ttfts.length?ttfts.reduce((a,b)=>a+b,0)/ttfts.length:null;
+  const elapsed=Math.max(.001,(performance.now()-apiTestBatchStarted)/1000);
+  const batchTPS=output/elapsed;
+  $("#api-test-summary").innerHTML=[
+    ["进度",completed+" / "+rows.length],
+    ["成功 / 失败",done.length+" / "+failed.length],
+    ["平均 TTFT",avgTTFT==null?"—":fmtMS(avgTTFT)],
+    ["输入 tokens",input.toLocaleString()],
+    ["输出 tokens",output.toLocaleString()],
+    ["总计 tokens",total.toLocaleString()],
+    ["批次吞吐",output?batchTPS.toFixed(2)+" tok/s":"—"],
+  ].map(([k,v])=>'<div class="benchmark-kpi"><span>'+esc(k)+'</span><strong>'+esc(v)+'</strong></div>').join("");
+  $("#api-test-results").innerHTML='<div class="table-wrap"><table class="data-table benchmark-table"><thead><tr><th>#</th><th>状态</th><th>TTFT</th><th>实时吞吐率</th><th>输入 tokens</th><th>输出 tokens</th><th>总计 tokens</th><th>总耗时</th><th>回复预览</th></tr></thead><tbody>'+
+    rows.map(r=>'<tr>'+
+      '<td>'+r.index+'</td>'+
+      '<td>'+benchmarkStatus(r)+(r.error?'<div class="cell-sub benchmark-error">'+esc(r.error)+'</div>':"")+'</td>'+
+      '<td class="mono">'+(r.ttft_ms==null?"—":fmtMS(r.ttft_ms))+'</td>'+
+      '<td class="mono">'+fmtTPS(r.throughput_tps,r.throughput_estimated)+'</td>'+
+      '<td class="mono">'+(r.input_tokens?Number(r.input_tokens).toLocaleString():"—")+'</td>'+
+      '<td class="mono">'+(r.output_tokens?Number(r.output_tokens).toLocaleString():"—")+'</td>'+
+      '<td class="mono">'+(r.total_tokens?Number(r.total_tokens).toLocaleString():"—")+'</td>'+
+      '<td class="mono">'+((r.duration_ms??r.elapsed_ms)>0?fmtMS(r.duration_ms??r.elapsed_ms):"—")+'</td>'+
+      '<td><div class="benchmark-preview">'+esc(r.preview||"—")+'</div></td>'+
+    '</tr>').join("")+'</tbody></table></div>';
+}
+function handleAPITestEvent(event){
+  if(event.type!=="request")return;
+  const row=apiTestRows.get(Number(event.index));
+  if(!row)return;
+  Object.assign(row,event);
+  if(event.status==="done"||event.status==="error")row.duration_ms=Number(event.duration_ms||event.elapsed_ms||0);
+  scheduleAPITestRender();
+}
+async function consumeAPITestStream(res){
+  if(!res.body)throw new Error("浏览器不支持流式响应");
+  const reader=res.body.getReader(),decoder=new TextDecoder();
+  let buffer="";
+  while(true){
+    const {value,done}=await reader.read();
+    if(done)break;
+    buffer+=decoder.decode(value,{stream:true});
+    buffer=buffer.replace(/\r\n/g,"\n");
+    let split;
+    while((split=buffer.indexOf("\n\n"))>=0){
+      const block=buffer.slice(0,split);buffer=buffer.slice(split+2);
+      const data=block.split("\n").filter(line=>line.startsWith("data:")).map(line=>line.slice(5).trim()).join("\n");
+      if(!data)continue;
+      try{handleAPITestEvent(JSON.parse(data));}catch(e){console.warn("benchmark event parse failed",e);}
+    }
+  }
+}
+function stopAPITest(){
+  if(!apiTestController)return;
+  apiTestController.abort();
+  apiTestRows.forEach(row=>{if(row.status==="queued"||row.status==="running")row.status="cancelled";});
+  scheduleAPITestRender();
+}
+async function runAPITest(ev){
+  ev.preventDefault();
+  if(apiTestController)return;
+  const form=ev.currentTarget;if(!form.reportValidity())return;
+  const body={
+    model:$("#api-test-model").value,
+    prompt:$("#api-test-prompt").value.trim(),
+    context_window_tokens:Number($("#api-test-context").value||0),
+    concurrency:Number($("#api-test-concurrency").value||1),
+    max_output_tokens:Number($("#api-test-output-tokens").value||512),
+  };
+  if(!body.model){toast("请选择测试模型","bad");return;}
+  initAPITestRows(body.concurrency);
+  apiTestController=new AbortController();
+  $("#api-test-start").disabled=true;$("#api-test-stop").disabled=false;
+  $("#api-test-note").textContent="测试进行中：服务端正在发起 "+body.concurrency+" 路并发请求…";
+  try{
+    const res=await fetch("/api/benchmark/chat",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify(body),signal:apiTestController.signal});
+    if(res.status===401){location.replace("/login");return;}
+    if(!res.ok){
+      let data=null;try{data=await res.json();}catch{}
+      throw new Error(data?.error||("HTTP "+res.status));
+    }
+    await consumeAPITestStream(res);
+    $("#api-test-note").textContent="测试完成。运行中带 ≈ 的吞吐率为估算值；最终有 usage 时显示精确平均 tokens/s。";
+  }catch(e){
+    if(e.name==="AbortError"){
+      $("#api-test-note").textContent="测试已停止。";
+    }else{
+      toast(e.message,"bad");
+      $("#api-test-note").textContent="测试失败："+e.message;
+      apiTestRows.forEach(row=>{if(row.status==="queued"||row.status==="running"){row.status="error";row.error=e.message;}});
+    }
+  }finally{
+    apiTestController=null;
+    $("#api-test-start").disabled=false;$("#api-test-stop").disabled=true;
+    scheduleAPITestRender();
+  }
+}
+
 async function logout(){try{await api("/auth/logout",{method:"POST"});}catch{}location.replace("/login");}
 function bind(){
   $$("[data-page]").forEach(b=>b.onclick=()=>setPage(b.dataset.page));
@@ -258,6 +428,7 @@ function bind(){
   $("#browser-login").onclick=browserLogin;$("#desktop-import").onclick=desktopImport;$("#token-add").onclick=()=>openDialog("token-modal");
   $("#token-form").onsubmit=saveToken;$("#proxy-form").onsubmit=saveProxy;$("#models-refresh").onclick=loadModels;
   $("#key-add").onclick=()=>openDialog("key-modal");$("#key-form").onsubmit=createKey;
+  $("#api-test-form").onsubmit=runAPITest;$("#api-test-stop").onclick=stopAPITest;$("#api-test-model").onchange=syncAPITestModelLimits;
   $$("[data-close]").forEach(b=>b.onclick=()=>closeDialog(b.dataset.close));
   $$("[data-copy]").forEach(b=>b.onclick=async()=>{const el=$("#"+b.dataset.copy);await navigator.clipboard.writeText(el.textContent);toast("已复制","good");});
   document.addEventListener("click",e=>{const d=$("#top-more");if(d?.open&&!d.contains(e.target))closeTopMore();});
