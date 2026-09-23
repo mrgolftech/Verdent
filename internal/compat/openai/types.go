@@ -13,6 +13,7 @@ type ChatRequest struct {
 	MaxCompletionTokens int             `json:"max_completion_tokens,omitempty"`
 	Temperature         *float64        `json:"temperature,omitempty"`
 	ReasoningEffort     string          `json:"reasoning_effort,omitempty"`
+	ContextWindowTokens int             `json:"context_window_tokens,omitempty"`
 }
 
 type StreamOptions struct {
