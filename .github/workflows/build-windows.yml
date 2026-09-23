@@ -1,0 +1,71 @@
+name: build-windows
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  package-windows:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Test
+        run: |
+          go test ./...
+          go vet ./...
+
+      - name: Build Windows x64 executable
+        env:
+          GOOS: windows
+          GOARCH: amd64
+          CGO_ENABLED: "0"
+        run: |
+          mkdir -p dist/package
+          go build -trimpath -ldflags="-s -w" -o dist/package/verdent.exe ./cmd/verdent
+          cp .env.example dist/package/.env.example
+          cp README.md dist/package/README.md
+
+      - name: Create checksums and zip package
+        run: |
+          cd dist/package
+          sha256sum verdent.exe > verdent.exe.sha256
+          zip -9 ../verdent-windows-amd64.zip verdent.exe verdent.exe.sha256 .env.example README.md
+          cd ..
+          sha256sum verdent-windows-amd64.zip > verdent-windows-amd64.zip.sha256
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: verdent-windows-amd64
+          path: |
+            dist/package/verdent.exe
+            dist/package/verdent.exe.sha256
+            dist/verdent-windows-amd64.zip
+            dist/verdent-windows-amd64.zip.sha256
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish GitHub Release assets
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          gh release view "$tag" >/dev/null 2>&1 || gh release create "$tag" --generate-notes --title "$tag"
+          gh release upload "$tag" \
+            dist/verdent-windows-amd64.zip \
+            dist/verdent-windows-amd64.zip.sha256 \
+            dist/package/verdent.exe \
+            dist/package/verdent.exe.sha256 \
+            --clobber
