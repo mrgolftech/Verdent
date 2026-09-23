@@ -69,6 +69,8 @@ func load(getenv func(string)string, readFile func(string)([]byte,error)) (Runti
 			Sign:getenv("VERDENT_PROXY_SIGN"),
 			UserAgent:strings.TrimSpace(getenv("VERDENT_USER_AGENT")),
 			OSType:strings.TrimSpace(getenv("VERDENT_OS_TYPE")),
+			OSName:strings.TrimSpace(getenv("VERDENT_OS_NAME")),
+			CPUArch:strings.TrimSpace(getenv("VERDENT_CPU_ARCH")),
 			DeviceType:strings.TrimSpace(getenv("VERDENT_DEVICE_TYPE")),
 			DeviceModel:strings.TrimSpace(getenv("VERDENT_DEVICE_MODEL")),
 		},
@@ -94,11 +96,21 @@ func load(getenv func(string)string, readFile func(string)([]byte,error)) (Runti
 	if path:=strings.TrimSpace(getenv("VERDENT_SYSTEM_TEMPLATE_FILE"));path!="" {
 		data,err:=readFile(path);if err!=nil{return Runtime{},fmt.Errorf("read Verdent system template: %w",err)}
 		var template struct {
+			Channel string `json:"channel"`
 			System string `json:"system"`
+			AgentName string `json:"agent_name"`
 			ModelCatalogVersion string `json:"model_catalog_version"`
 			NativeAPI *bool `json:"native_api"`
 			Effort string `json:"effort"`
 			Thinking *protocol.Thinking `json:"thinking"`
+			MaxTokens int `json:"max_tokens"`
+			Temperature *float64 `json:"temperature"`
+			IsEco *bool `json:"is_eco"`
+			IsAuto *bool `json:"is_auto"`
+			IsFree *bool `json:"is_free"`
+			IsLimitFree *bool `json:"is_limit_free"`
+			TraceTags []string `json:"custom_trace_tags_tmp"`
+			TraceMetadata *protocol.TraceMetadata `json:"custom_trace_metadata_tmp"`
 			Env struct {
 				Platform string `json:"platform"`
 				OSVersion string `json:"os_version"`
@@ -108,9 +120,19 @@ func load(getenv func(string)string, readFile func(string)([]byte,error)) (Runti
 		if err:=json.Unmarshal(data,&template);err!=nil{return Runtime{},fmt.Errorf("decode Verdent system template: %w",err)}
 		if strings.TrimSpace(template.System)=="" { return Runtime{},errors.New("Verdent system template is missing encrypted system field") }
 		r.Protocol.SystemCiphertext=template.System
+		if strings.TrimSpace(template.Channel)!="" { r.Protocol.Channel=strings.TrimSpace(template.Channel) }
+		if strings.TrimSpace(template.AgentName)!="" { r.Protocol.AgentName=strings.TrimSpace(template.AgentName) }
 		r.Protocol.ModelCatalogVersion=strings.TrimSpace(template.ModelCatalogVersion)
 		r.Protocol.Effort=strings.TrimSpace(template.Effort)
 		r.Protocol.Thinking=template.Thinking
+		r.Protocol.MaxTokens=template.MaxTokens
+		r.Protocol.Temperature=template.Temperature
+		if template.IsEco!=nil { r.Protocol.IsEco=*template.IsEco }
+		if template.IsAuto!=nil { r.Protocol.IsAuto=*template.IsAuto }
+		if template.IsFree!=nil { r.Protocol.IsFree=*template.IsFree }
+		if template.IsLimitFree!=nil { r.Protocol.IsLimitFree=*template.IsLimitFree }
+		if template.TraceTags!=nil { r.Protocol.TraceTags=append([]string(nil),template.TraceTags...) }
+		r.Protocol.TraceMetadata=template.TraceMetadata
 		r.Protocol.Environment=protocol.Environment{Platform:strings.TrimSpace(template.Env.Platform),OSVersion:strings.TrimSpace(template.Env.OSVersion),Shell:strings.TrimSpace(template.Env.Shell)}
 		if template.NativeAPI!=nil { r.Protocol.NativeAPI=*template.NativeAPI }
 	}
