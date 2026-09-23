@@ -316,6 +316,8 @@ func (s *Server) upsertAuthToken(authToken verdentauth.TokenResponse, label, dev
 	}
 	if exists {
 		credential.Disabled = existing.Disabled
+		credential.Suspended = existing.Suspended
+		credential.SuspensionError = existing.SuspensionError
 	}
 	s.Accounts.Add(credential)
 	if err := s.persistAccounts(); err != nil {
