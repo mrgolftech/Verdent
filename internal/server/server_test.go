@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"sync/atomic"
 
 	"github.com/mrgolftech/Verdent/internal/account"
 	openai "github.com/mrgolftech/Verdent/internal/compat/openai"
@@ -76,4 +77,69 @@ func TestModelsEndpoint(t *testing.T) {
 	resp,err:=http.Get(api.URL+"/v1/models"); if err!=nil{t.Fatal(err)}; defer resp.Body.Close()
 	var got struct{ Data []struct{ID string `json:"id"`} `json:"data"` }; if err:=json.NewDecoder(resp.Body).Decode(&got);err!=nil{t.Fatal(err)}
 	if len(got.Data)!=1 || got.Data[0].ID!="model-a" { t.Fatalf("bad models: %#v",got) }
+}
+
+
+func TestSuspensionStopsCurrentRequestAndParksOnlySelectedAccount(t *testing.T) {
+	var calls atomic.Int32
+	upstream:=httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter,r *http.Request){
+		calls.Add(1)
+		w.Header().Set("Content-Type","application/json")
+		w.WriteHeader(http.StatusTooManyRequests)
+		_,_=io.WriteString(w,`{"error_code":80006,"msg":"Due to a violation of our policies, your free mode access has been suspended"}`)
+	}))
+	defer upstream.Close()
+
+	router:=account.NewRouter([]account.Credential{
+		{ID:"a",Token:"ta",DeviceID:"da"},
+		{ID:"b",Token:"tb",DeviceID:"db"},
+	})
+	s:=New(router,protocol.Config{
+		Endpoint:upstream.URL,CatalogEndpoint:upstream.URL,
+		AppVersion:"2.15.1",BetaHeader:"beta",Sign:"protocol-sign-for-test-only",
+		RetryDelays:[]time.Duration{time.Millisecond,time.Millisecond,time.Millisecond},
+	})
+	s.RequestTimeout=5*time.Second
+	api:=httptest.NewServer(s.Handler())
+	defer api.Close()
+
+	body:=`{"model":"m","messages":[{"role":"user","content":"hello"}]}`
+	resp,err:=http.Post(api.URL+"/v1/chat/completions","application/json",strings.NewReader(body))
+	if err!=nil{t.Fatal(err)}
+	defer resp.Body.Close()
+	raw,_:=io.ReadAll(resp.Body)
+
+	if calls.Load()!=1 { t.Fatalf("80006 must not retry or fan out, upstream calls=%d",calls.Load()) }
+	if !strings.Contains(string(raw),"verdent_account_suspended") { t.Fatalf("unexpected body: %s",raw) }
+
+	snapshot:=router.Snapshot()
+	if len(snapshot)!=2 { t.Fatalf("snapshot=%#v",snapshot) }
+	if snapshot[0].Credential.ID!="a" || snapshot[0].State!=account.StateSuspended {
+		t.Fatalf("selected account not suspended: %#v",snapshot[0])
+	}
+	if snapshot[1].Credential.ID!="b" || snapshot[1].State!=account.StateHealthy {
+		t.Fatalf("unselected account must remain healthy: %#v",snapshot[1])
+	}
+}
+
+func TestInBandSuspensionParksAccount(t *testing.T) {
+	s,u:=testServer(t,http.HandlerFunc(func(w http.ResponseWriter,r *http.Request){
+		w.Header().Set("Content-Type","text/event-stream")
+		_,_=io.WriteString(w,`data: {"type":"error","message":"{\"error_code\":80006,\"msg\":\"free mode access has been suspended\"}"}`+"\n\n")
+	}))
+	defer u.Close()
+	api:=httptest.NewServer(s.Handler())
+	defer api.Close()
+
+	body:=`{"model":"m","messages":[{"role":"user","content":"hello"}]}`
+	resp,err:=http.Post(api.URL+"/v1/chat/completions","application/json",strings.NewReader(body))
+	if err!=nil{t.Fatal(err)}
+	defer resp.Body.Close()
+	raw,_:=io.ReadAll(resp.Body)
+
+	if !strings.Contains(string(raw),"verdent_account_suspended") { t.Fatalf("unexpected body: %s",raw) }
+	got:=s.Accounts.Snapshot()
+	if len(got)!=1 || got[0].State!=account.StateSuspended {
+		t.Fatalf("expected suspended account after SSE error: %#v",got)
+	}
 }
