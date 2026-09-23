@@ -151,6 +151,8 @@ func (s *Server) diagnoseAccount(ctx context.Context, selected *account.Account)
 	}
 
 	result.Diagnostics.FreeInference = accountDiagnosticStep{Status: "ok", Detail: "free inference accepted", Model: model}
+	s.Accounts.MarkHealthy(selected.Credential.ID)
+	_ = s.persistAccounts()
 	result.OK = true
 	result.State = currentAccountState(s.Accounts, selected.Credential.ID)
 	return result
