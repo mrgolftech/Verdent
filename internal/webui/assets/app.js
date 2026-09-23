@@ -104,10 +104,10 @@ async function loadAccounts(){
       '<button class="table-action danger" data-delete="'+esc(a.id)+'">'+icon("trash","mini-icon")+'<span>删除</span></button>'+
       '</div></td></tr>';
   }).join("")+"</tbody></table></div>";
-  $("[data-test]").forEach(b=>b.onclick=()=>testAccount(b.dataset.test,b));
-  $("[data-proxy]").forEach(b=>b.onclick=()=>openProxy(b.dataset.proxy));
-  $("[data-enabled]").forEach(b=>b.onchange=()=>setAccountEnabled(b.dataset.enabled,b.checked,b));
-  $("[data-delete]").forEach(b=>b.onclick=()=>deleteAccount(b.dataset.delete));
+  $$("[data-test]").forEach(b=>b.onclick=()=>testAccount(b.dataset.test,b));
+  $$("[data-proxy]").forEach(b=>b.onclick=()=>openProxy(b.dataset.proxy));
+  $$("[data-enabled]").forEach(b=>b.onchange=()=>setAccountEnabled(b.dataset.enabled,b.checked,b));
+  $$("[data-delete]").forEach(b=>b.onclick=()=>deleteAccount(b.dataset.delete));
 }
 
 function diagnosticSummary(r){
